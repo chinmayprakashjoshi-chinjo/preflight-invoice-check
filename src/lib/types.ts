@@ -56,6 +56,8 @@ export type RequirementKey = z.infer<typeof RequirementKeySchema>;
 export const RequirementMetaSchema = z.object({
   evidence: z.string(),
   confidence: ConfidenceSchema,
+  /** True once the user has corrected the extracted value by hand. */
+  edited: z.boolean().optional(),
 });
 export type RequirementMeta = z.infer<typeof RequirementMetaSchema>;
 
