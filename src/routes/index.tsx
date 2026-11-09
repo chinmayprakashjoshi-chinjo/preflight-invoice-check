@@ -1,18 +1,16 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { Landing } from "@/components/landing/Landing";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    throw redirect({ to: "/new-invoice" });
-  },
   head: () => ({
     meta: [
-      { title: "PreFlight" },
-      { name: "description", content: "Check invoices against client AP rules before sending." },
-      { property: "og:title", content: "PreFlight" },
+      { title: "PreFlight: check the invoice before you send it" },
       {
-        property: "og:description",
-        content: "Check invoices against client AP rules before sending.",
+        name: "description",
+        content:
+          "PreFlight reads your client's AP rules, flags what would get your invoice rejected, then sends it through PayPal.",
       },
     ],
   }),
+  component: Landing,
 });

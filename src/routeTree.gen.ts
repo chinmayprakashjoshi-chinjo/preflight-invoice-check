@@ -10,73 +10,108 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ClientsRouteImport } from './routes/clients'
-import { Route as InvoicesRouteImport } from './routes/invoices'
-import { Route as NewInvoiceRouteImport } from './routes/new-invoice'
-import { Route as PricerRouteImport } from './routes/pricer'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppClientsRouteImport } from './routes/app.clients'
+import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
+import { Route as AppNewInvoiceRouteImport } from './routes/app.new-invoice'
+import { Route as AppPricerRouteImport } from './routes/app.pricer'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientsRoute = ClientsRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientsRoute = AppClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const InvoicesRoute = InvoicesRouteImport.update({
+const AppInvoicesRoute = AppInvoicesRouteImport.update({
   id: '/invoices',
   path: '/invoices',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const NewInvoiceRoute = NewInvoiceRouteImport.update({
+const AppNewInvoiceRoute = AppNewInvoiceRouteImport.update({
   id: '/new-invoice',
   path: '/new-invoice',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const PricerRoute = PricerRouteImport.update({
+const AppPricerRoute = AppPricerRouteImport.update({
   id: '/pricer',
   path: '/pricer',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/clients': typeof ClientsRoute
-  '/invoices': typeof InvoicesRoute
-  '/new-invoice': typeof NewInvoiceRoute
-  '/pricer': typeof PricerRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/clients': typeof AppClientsRoute
+  '/app/invoices': typeof AppInvoicesRoute
+  '/app/new-invoice': typeof AppNewInvoiceRoute
+  '/app/pricer': typeof AppPricerRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/clients': typeof ClientsRoute
-  '/invoices': typeof InvoicesRoute
-  '/new-invoice': typeof NewInvoiceRoute
-  '/pricer': typeof PricerRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/invoices': typeof AppInvoicesRoute
+  '/app/new-invoice': typeof AppNewInvoiceRoute
+  '/app/pricer': typeof AppPricerRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/clients': typeof ClientsRoute
-  '/invoices': typeof InvoicesRoute
-  '/new-invoice': typeof NewInvoiceRoute
-  '/pricer': typeof PricerRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/clients': typeof AppClientsRoute
+  '/app/invoices': typeof AppInvoicesRoute
+  '/app/new-invoice': typeof AppNewInvoiceRoute
+  '/app/pricer': typeof AppPricerRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/clients' | '/invoices' | '/new-invoice' | '/pricer'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/app/clients'
+    | '/app/invoices'
+    | '/app/new-invoice'
+    | '/app/pricer'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/clients' | '/invoices' | '/new-invoice' | '/pricer'
-  id: '__root__' | '/' | '/clients' | '/invoices' | '/new-invoice' | '/pricer'
+  to:
+    | '/'
+    | '/app/clients'
+    | '/app/invoices'
+    | '/app/new-invoice'
+    | '/app/pricer'
+    | '/app'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/clients'
+    | '/app/invoices'
+    | '/app/new-invoice'
+    | '/app/pricer'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ClientsRoute: typeof ClientsRoute
-  InvoicesRoute: typeof InvoicesRoute
-  NewInvoiceRoute: typeof NewInvoiceRoute
-  PricerRoute: typeof PricerRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -88,43 +123,72 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clients': {
-      id: '/clients'
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/clients': {
+      id: '/app/clients'
       path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof ClientsRouteImport
-      parentRoute: typeof rootRouteImport
+      fullPath: '/app/clients'
+      preLoaderRoute: typeof AppClientsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/invoices': {
-      id: '/invoices'
+    '/app/invoices': {
+      id: '/app/invoices'
       path: '/invoices'
-      fullPath: '/invoices'
-      preLoaderRoute: typeof InvoicesRouteImport
-      parentRoute: typeof rootRouteImport
+      fullPath: '/app/invoices'
+      preLoaderRoute: typeof AppInvoicesRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/new-invoice': {
-      id: '/new-invoice'
+    '/app/new-invoice': {
+      id: '/app/new-invoice'
       path: '/new-invoice'
-      fullPath: '/new-invoice'
-      preLoaderRoute: typeof NewInvoiceRouteImport
-      parentRoute: typeof rootRouteImport
+      fullPath: '/app/new-invoice'
+      preLoaderRoute: typeof AppNewInvoiceRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/pricer': {
-      id: '/pricer'
+    '/app/pricer': {
+      id: '/app/pricer'
       path: '/pricer'
-      fullPath: '/pricer'
-      preLoaderRoute: typeof PricerRouteImport
-      parentRoute: typeof rootRouteImport
+      fullPath: '/app/pricer'
+      preLoaderRoute: typeof AppPricerRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppClientsRoute: typeof AppClientsRoute
+  AppInvoicesRoute: typeof AppInvoicesRoute
+  AppNewInvoiceRoute: typeof AppNewInvoiceRoute
+  AppPricerRoute: typeof AppPricerRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppClientsRoute: AppClientsRoute,
+  AppInvoicesRoute: AppInvoicesRoute,
+  AppNewInvoiceRoute: AppNewInvoiceRoute,
+  AppPricerRoute: AppPricerRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ClientsRoute: ClientsRoute,
-  InvoicesRoute: InvoicesRoute,
-  NewInvoiceRoute: NewInvoiceRoute,
-  PricerRoute: PricerRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

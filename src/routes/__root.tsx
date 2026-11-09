@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -83,13 +82,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PreFlight: check invoices before they go out" },
+      { title: "PreFlight: check the invoice before you send it" },
       {
         name: "description",
         content:
-          "PreFlight checks freelance invoices against each client's accounts-payable rules, then sends them via PayPal.",
+          "PreFlight reads your client's AP rules, flags what would get your invoice rejected, then sends it through PayPal.",
       },
-      { property: "og:title", content: "PreFlight: check invoices before they go out" },
+      { property: "og:title", content: "PreFlight: check the invoice before you send it" },
       {
         property: "og:description",
         content:
@@ -109,7 +108,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon.png" },
+      { rel: "icon", type: "image/svg+xml", href: "/brand/preflight-icon.svg" },
     ],
   }),
   shellComponent: RootShell,
@@ -137,15 +137,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen w-full flex-col desk:flex-row">
-        <AppSidebar />
-        <main className="min-w-0 flex-1">
-          <div className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 desk:px-8 desk:py-8">
-            {/* Required: nested routes render here. */}
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      {/* Required: nested routes render here. */}
+      <Outlet />
       <Toaster position="bottom-right" />
     </QueryClientProvider>
   );
