@@ -83,3 +83,14 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Environment variables
+
+Copy `.env.example` to `.env` to change them. Both are optional.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `VITE_USE_MOCKS` | `true` | `true` returns mock data from `src/mocks/`. `false` calls the real endpoints with `fetch`, validating responses with the Zod schemas in `src/lib/types.ts`. |
+| `VITE_API_BASE_URL` | empty | Backend base URL, used only when `VITE_USE_MOCKS=false`. |
+
+`src/lib/api.ts` is the only place components fetch data. Endpoints: `POST /api/requirements`, `POST /api/draft`, `POST /api/preflight`, `POST /api/pricer`, `POST /api/send`, `GET /api/invoices`, `POST /api/invoices/:id/mark-paid`, plus `GET /api/clients`, `PUT /api/clients/:id/requirements` and `POST /api/requirements/learn`.
