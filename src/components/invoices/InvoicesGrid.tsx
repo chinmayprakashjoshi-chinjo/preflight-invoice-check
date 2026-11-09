@@ -7,7 +7,7 @@ import {
   type ICellRendererParams,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/preflight/MoneyText";
 import { PreflightResultPill } from "@/components/preflight/PreflightResultPill";
@@ -48,7 +48,6 @@ const preflightTheme = themeQuartz.withParams({
 
 export interface InvoicesGridContext {
   pendingId: string | null;
-  onRemind: (invoice: InvoiceRecord) => void;
   onMarkPaid: (invoice: InvoiceRecord) => void;
 }
 
@@ -71,7 +70,21 @@ function ActionsCell({ data, context }: Params) {
   if (!data) return null;
   const actionable = data.status === "sent" || data.status === "overdue";
   if (!actionable) {
-    return (
+    return data.payerLink ? (
+      <div className="flex h-full items-center [&_button]:px-2.5">
+        <Button asChild size="sm" variant="outline">
+          <a
+            href={data.payerLink}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open payer link for ${data.number}`}
+          >
+            <ExternalLink aria-hidden="true" />
+            Payer link
+          </a>
+        </Button>
+      </div>
+    ) : (
       <span className="text-sm text-muted-foreground">
         <span aria-hidden="true">—</span>
         <span className="sr-only">No actions</span>
@@ -84,15 +97,6 @@ function ActionsCell({ data, context }: Params) {
       <Button
         type="button"
         size="sm"
-        variant="outline"
-        onClick={() => context.onRemind(data)}
-        aria-label={`Send reminder for ${data.number}`}
-      >
-        Remind
-      </Button>
-      <Button
-        type="button"
-        size="sm"
         variant="tint"
         disabled={pending}
         onClick={() => context.onMarkPaid(data)}
@@ -101,6 +105,19 @@ function ActionsCell({ data, context }: Params) {
         {pending && <Loader2 className="animate-spin" aria-hidden="true" />}
         Mark paid (sandbox)
       </Button>
+      {data.payerLink && (
+        <Button asChild size="sm" variant="outline">
+          <a
+            href={data.payerLink}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open payer link for ${data.number}`}
+          >
+            <ExternalLink aria-hidden="true" />
+            Payer link
+          </a>
+        </Button>
+      )}
     </div>
   );
 }
@@ -121,7 +138,7 @@ export default function InvoicesGrid({ rows, quickFilter, context }: InvoicesGri
         flex: 0,
         cellClass: "tabular font-medium",
       },
-      { field: "clientName", headerName: "Client", flex: 1, minWidth: 140 },
+      { field: "clientName", headerName: "Client", width: 200, flex: 0 },
       {
         field: "amount",
         headerName: "Amount",
@@ -135,17 +152,25 @@ export default function InvoicesGrid({ rows, quickFilter, context }: InvoicesGri
       {
         field: "status",
         headerName: "Status",
-        width: 125,
+        width: 140,
         flex: 0,
         cellRenderer: StatusCell,
       },
       {
         field: "dueDate",
         headerName: "Due date",
-        width: 122,
+        width: 135,
         flex: 0,
         cellClass: "tabular",
         valueFormatter: (p) => (p.value ? formatDate(p.value) : ""),
+      },
+      {
+        field: "paypalInvoiceId",
+        headerName: "PayPal invoice ID",
+        width: 250,
+        flex: 0,
+        cellClass: "tabular text-muted-foreground",
+        valueFormatter: (p) => p.value ?? "Not sent yet",
       },
       {
         headerName: "Pre-flight result",
@@ -164,9 +189,15 @@ export default function InvoicesGrid({ rows, quickFilter, context }: InvoicesGri
         cellRenderer: PreflightCell,
       },
       {
+        field: "updatedNote",
+        headerName: "Updated",
+        width: 210,
+        flex: 0,
+      },
+      {
         headerName: "Actions",
         colId: "actions",
-        width: 240,
+        width: 340,
         flex: 0,
         pinned: "right",
         sortable: false,
@@ -186,6 +217,7 @@ export default function InvoicesGrid({ rows, quickFilter, context }: InvoicesGri
         context={context}
         quickFilterText={quickFilter}
         getRowId={(p) => p.data.id}
+        suppressColumnVirtualisation
         suppressCellFocus
         domLayout="autoHeight"
         animateRows={false}

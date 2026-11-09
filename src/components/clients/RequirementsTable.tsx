@@ -16,10 +16,21 @@ export function RequirementsTable({ rows, onEdit }: RequirementsTableProps) {
         <caption className="sr-only">Extracted AP requirements</caption>
         <thead className="bg-muted text-left text-xs text-muted-foreground">
           <tr>
-            <th scope="col" className="px-4 py-2.5 font-medium">Requirement</th>
-            <th scope="col" className="px-4 py-2.5 font-medium">Value</th>
-            <th scope="col" className="px-4 py-2.5 font-medium">Evidence</th>
-            <th scope="col" className="px-4 py-2.5 font-medium">Confidence</th>
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              Requirement
+            </th>
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              Value
+            </th>
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              Evidence{" "}
+              <span className="ml-1 inline-flex items-center rounded-full bg-primary-tint px-2 py-0.5 text-[11px] font-medium text-primary">
+                AI-extracted
+              </span>
+            </th>
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              Confidence
+            </th>
             <th scope="col" className="w-16 px-4 py-2.5">
               <span className="sr-only">Actions</span>
             </th>
@@ -30,6 +41,11 @@ export function RequirementsTable({ rows, onEdit }: RequirementsTableProps) {
             <tr key={r.key} className="border-t align-top">
               <th scope="row" className="px-4 py-3 text-left font-medium text-foreground">
                 {r.label}
+                {r.isNew && (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-pass-tint px-2 py-0.5 text-[11px] font-medium text-pass-strong">
+                    New
+                  </span>
+                )}
                 {r.edited && (
                   <span className="mt-1 block text-xs font-normal text-primary">Edited by you</span>
                 )}

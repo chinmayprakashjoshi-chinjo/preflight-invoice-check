@@ -24,7 +24,10 @@ export function QuickDraftCard({ onGenerate }: QuickDraftCardProps) {
 
   return (
     <form onSubmit={submit} className="rounded-xl border bg-surface p-4 sm:p-5" aria-busy={loading}>
-      <label htmlFor="quick-draft" className="flex items-center gap-2 text-sm font-medium text-foreground">
+      <label
+        htmlFor="quick-draft"
+        className="flex items-center gap-2 text-sm font-medium text-foreground"
+      >
         <Sparkles className="size-4 text-primary" aria-hidden="true" />
         Describe the invoice
       </label>

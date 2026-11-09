@@ -70,7 +70,7 @@ function PanelHeader({ issues, checking }: { issues?: Issue[]; checking: boolean
         </span>
       </div>
       {s && (
-        <div className="mt-3 flex flex-wrap gap-2" aria-label="Check summary">
+        <div className="mt-3 flex flex-wrap gap-2" role="status" aria-live="polite">
           <SeverityBadge severity="blocker" label={pluralize(s.blockers, "blocker")} />
           <SeverityBadge severity="warning" label={pluralize(s.warnings, "warning")} />
           <SeverityBadge severity="pass" label={`${s.passed} passed`} />
@@ -148,7 +148,7 @@ function PanelBody({
             }
             action={
               <Button asChild variant="outline">
-                <Link to="/clients" search={{ client: client.id }}>
+                <Link to="/app/clients" search={{ client: client.id }}>
                   Open {client.name}
                 </Link>
               </Button>
@@ -170,7 +170,7 @@ function PanelBody({
             description={`Extract ${client.name}'s rules from their AP document to check this invoice.`}
             action={
               <Button asChild>
-                <Link to="/clients" search={{ client: client.id }}>
+                <Link to="/app/clients" search={{ client: client.id }}>
                   Extract requirements
                 </Link>
               </Button>

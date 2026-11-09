@@ -108,7 +108,9 @@ export function RequirementEditDialog({
                     id="open-po"
                     className="mt-1.5 tabular"
                     value={draft.openPoNumber ?? ""}
-                    onChange={(e) => setDraft((d) => ({ ...d, openPoNumber: e.target.value || undefined }))}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, openPoNumber: e.target.value || undefined }))
+                    }
                   />
                 </div>
               )}
@@ -122,7 +124,9 @@ export function RequirementEditDialog({
                     id="vat-on-file"
                     className="mt-1.5 tabular"
                     value={draft.vatIdOnFile ?? ""}
-                    onChange={(e) => setDraft((d) => ({ ...d, vatIdOnFile: e.target.value || undefined }))}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, vatIdOnFile: e.target.value || undefined }))
+                    }
                   />
                 </div>
               )}
@@ -136,7 +140,9 @@ export function RequirementEditDialog({
                     id="legal-name"
                     value={draft.legalName ?? ""}
                     placeholder="Leave empty if the client does not specify one"
-                    onChange={(e) => setDraft((d) => ({ ...d, legalName: e.target.value || undefined }))}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, legalName: e.target.value || undefined }))
+                    }
                   />
                 </>
               )}
@@ -151,7 +157,9 @@ export function RequirementEditDialog({
                     type="email"
                     value={draft.apEmail ?? ""}
                     placeholder="ap@client.example"
-                    onChange={(e) => setDraft((d) => ({ ...d, apEmail: e.target.value || undefined }))}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, apEmail: e.target.value || undefined }))
+                    }
                   />
                 </>
               )}
@@ -159,7 +167,9 @@ export function RequirementEditDialog({
               {key === "paymentTerms" && (
                 <Select
                   value={draft.paymentTerms}
-                  onValueChange={(v) => setDraft((d) => ({ ...d, paymentTerms: PaymentTermsSchema.parse(v) }))}
+                  onValueChange={(v) =>
+                    setDraft((d) => ({ ...d, paymentTerms: PaymentTermsSchema.parse(v) }))
+                  }
                 >
                   <SelectTrigger aria-label="Payment terms">
                     <SelectValue />
@@ -177,7 +187,10 @@ export function RequirementEditDialog({
               {key === "allowedCurrencies" && (
                 <div className="space-y-2">
                   {CURRENCIES.map((c) => (
-                    <label key={c} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                    <label
+                      key={c}
+                      className="flex items-center justify-between rounded-lg border px-4 py-3"
+                    >
                       <span className="text-sm text-foreground">{c}</span>
                       <Switch
                         checked={draft.allowedCurrencies.includes(c)}

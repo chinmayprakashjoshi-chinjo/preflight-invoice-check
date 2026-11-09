@@ -17,12 +17,19 @@ export function SendArea({ blockers, warnings, checking, sending, onSend }: Send
     <div className="rounded-b-xl border-t bg-muted/60 px-5 py-4">
       {blocked ? (
         <>
-          <Button type="button" variant="locked" size="lg" className="w-full" disabled aria-describedby="send-hint">
+          <Button
+            type="button"
+            variant="locked"
+            size="lg"
+            className="w-full"
+            disabled
+            aria-describedby="send-hint"
+          >
             <Lock aria-hidden="true" />
-            Resolve {pluralize(blockers, "blocker")} before sending
+            Send via PayPal
           </Button>
           <p id="send-hint" className="mt-2 text-center text-xs text-muted-foreground">
-            Blockers would get this invoice rejected by the client&rsquo;s AP team.
+            Resolve {pluralize(blockers, "blocker")} before sending
           </p>
         </>
       ) : (

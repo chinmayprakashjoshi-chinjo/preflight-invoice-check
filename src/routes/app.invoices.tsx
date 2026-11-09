@@ -1,7 +1,16 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { ClientOnly, createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, CircleDashed, Clock, FilePlus2, FileStack, Search, Send } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CircleDashed,
+  Clock,
+  FilePlus2,
+  FileStack,
+  Search,
+  Send,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,20 +26,31 @@ import { EmptyState } from "@/components/preflight/EmptyState";
 import { KpiCard } from "@/components/preflight/KpiCard";
 import { PageHeader } from "@/components/preflight/PageHeader";
 import { STATUS_LABELS } from "@/components/preflight/StatusChip";
-import { markPaid, sendReminder } from "@/lib/api";
+import { markPaid } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { invoicesQuery } from "@/lib/queries";
-import { InvoiceStatusSchema, type Currency, type InvoiceRecord, type InvoiceStatus } from "@/lib/types";
+import {
+  InvoiceStatusSchema,
+  type Currency,
+  type InvoiceRecord,
+  type InvoiceStatus,
+} from "@/lib/types";
 
 const InvoicesGrid = lazy(() => import("@/components/invoices/InvoicesGrid"));
 
-export const Route = createFileRoute("/invoices")({
+export const Route = createFileRoute("/app/invoices")({
   head: () => ({
     meta: [
       { title: "Invoices · PreFlight" },
-      { name: "description", content: "Every invoice you have drafted and sent, with its status and pre-flight result." },
+      {
+        name: "description",
+        content: "Every invoice you have drafted and sent, with its status and pre-flight result.",
+      },
       { property: "og:title", content: "Invoices · PreFlight" },
-      { property: "og:description", content: "Every invoice you have drafted and sent, with its status and pre-flight result." },
+      {
+        property: "og:description",
+        content: "Every invoice you have drafted and sent, with its status and pre-flight result.",
+      },
     ],
   }),
   component: InvoicesPage,
@@ -46,7 +66,11 @@ function totalsByCurrency(rows: InvoiceRecord[]): string[] {
 
 function GridSkeleton() {
   return (
-    <div className="space-y-2 rounded-xl border bg-surface p-4" aria-busy="true" aria-label="Loading invoices">
+    <div
+      className="space-y-2 rounded-xl border bg-surface p-4"
+      aria-busy="true"
+      aria-label="Loading invoices"
+    >
       <Skeleton className="h-9 w-full" />
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <Skeleton key={i} className="h-12 w-full" />
@@ -85,21 +109,12 @@ function InvoicesPage() {
       queryClient.setQueryData<InvoiceRecord[]>(invoicesQuery.queryKey, (prev) =>
         prev?.map((i) => (i.id === updated.id ? updated : i)),
       );
-      toast.success(`${updated.number} marked paid`, {
-        description: `${formatMoney(updated.amount, updated.currency)} from ${updated.clientName} (sandbox).`,
+      toast.success("INVOICING.INVOICE.PAID webhook received (sandbox)", {
+        description: `${updated.number} · ${formatMoney(updated.amount, updated.currency)} from ${updated.clientName}`,
       });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update the invoice."),
     onSettled: () => setPendingId(null),
-  });
-
-  const remindMutation = useMutation({
-    mutationFn: (inv: InvoiceRecord) => sendReminder(inv.id).then(() => inv),
-    onSuccess: (inv) =>
-      toast(`Reminder sent for ${inv.number}`, {
-        description: `${inv.clientName} will get a payment reminder in PayPal Sandbox.`,
-      }),
-    onError: () => toast.error("Could not send the reminder."),
   });
 
   return (
@@ -109,7 +124,7 @@ function InvoicesPage() {
         subtitle="Everything you have drafted and sent, with each invoice's pre-flight result."
         actions={
           <Button asChild>
-            <Link to="/new-invoice">
+            <Link to="/app/new-invoice">
               <FilePlus2 aria-hidden="true" />
               New invoice
             </Link>
@@ -118,10 +133,38 @@ function InvoicesPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 wide:grid-cols-4">
-        <KpiCard label="Draft" tone="neutral" icon={CircleDashed} count={kpis.draft.length} amounts={totalsByCurrency(kpis.draft)} loading={q.isPending} />
-        <KpiCard label="Sent (unpaid)" tone="primary" icon={Send} count={kpis.sent.length} amounts={totalsByCurrency(kpis.sent)} loading={q.isPending} />
-        <KpiCard label="Paid" tone="pass" icon={CheckCircle2} count={kpis.paid.length} amounts={totalsByCurrency(kpis.paid)} loading={q.isPending} />
-        <KpiCard label="Overdue" tone="warning" icon={Clock} count={kpis.overdue.length} amounts={totalsByCurrency(kpis.overdue)} loading={q.isPending} />
+        <KpiCard
+          label="Draft"
+          tone="neutral"
+          icon={CircleDashed}
+          count={kpis.draft.length}
+          amounts={totalsByCurrency(kpis.draft)}
+          loading={q.isPending}
+        />
+        <KpiCard
+          label="Sent (unpaid)"
+          tone="primary"
+          icon={Send}
+          count={kpis.sent.length}
+          amounts={totalsByCurrency(kpis.sent)}
+          loading={q.isPending}
+        />
+        <KpiCard
+          label="Paid"
+          tone="pass"
+          icon={CheckCircle2}
+          count={kpis.paid.length}
+          amounts={totalsByCurrency(kpis.paid)}
+          loading={q.isPending}
+        />
+        <KpiCard
+          label="Overdue"
+          tone="warning"
+          icon={Clock}
+          count={kpis.overdue.length}
+          amounts={totalsByCurrency(kpis.overdue)}
+          loading={q.isPending}
+        />
       </div>
 
       <section aria-labelledby="invoice-list" className="space-y-4">
@@ -131,7 +174,10 @@ function InvoicesPage() {
           </h2>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
               <label htmlFor="invoice-search" className="sr-only">
                 Search invoices
               </label>
@@ -144,7 +190,10 @@ function InvoicesPage() {
                 className="pl-9 sm:w-64"
               />
             </div>
-            <Select value={status} onValueChange={(v) => setStatus(v === "all" ? "all" : InvoiceStatusSchema.parse(v))}>
+            <Select
+              value={status}
+              onValueChange={(v) => setStatus(v === "all" ? "all" : InvoiceStatusSchema.parse(v))}
+            >
               <SelectTrigger className="sm:w-44" aria-label="Filter by status">
                 <SelectValue />
               </SelectTrigger>
@@ -181,7 +230,7 @@ function InvoicesPage() {
             description="Invoices you send from PreFlight appear here."
             action={
               <Button asChild>
-                <Link to="/new-invoice">Create your first invoice</Link>
+                <Link to="/app/new-invoice">Create your first invoice</Link>
               </Button>
             }
           />
@@ -193,7 +242,6 @@ function InvoicesPage() {
                 quickFilter={search}
                 context={{
                   pendingId,
-                  onRemind: (inv) => remindMutation.mutate(inv),
                   onMarkPaid: (inv) => paidMutation.mutate(inv),
                 }}
               />

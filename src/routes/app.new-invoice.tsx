@@ -9,11 +9,10 @@ import { DraftInvoiceForm } from "@/components/new-invoice/DraftInvoiceForm";
 import { InvoicePreviewDialog } from "@/components/new-invoice/InvoicePreviewDialog";
 import { PreflightPanel } from "@/components/new-invoice/PreflightPanel";
 import { QuickDraftCard } from "@/components/new-invoice/QuickDraftCard";
-import { emptyDraft, newLineItem } from "@/components/new-invoice/draft-utils";
+import { demoDraft, emptyDraft, newLineItem } from "@/components/new-invoice/draft-utils";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { runPreflight, sendInvoice } from "@/lib/api";
+import { draftInvoice, runPreflight, sendInvoice } from "@/lib/api";
 import { formatMoney, pluralize, todayIso } from "@/lib/format";
-import { parseDraftPrompt } from "@/lib/parse-draft";
 import { applyFix, summarize } from "@/lib/preflight";
 import { clientsQuery } from "@/lib/queries";
 import type { Currency, DraftInvoice, FixField, InvoiceRecord, Issue } from "@/lib/types";
@@ -23,7 +22,7 @@ interface NewInvoiceSearch {
   currency?: Currency | undefined;
 }
 
-export const Route = createFileRoute("/new-invoice")({
+export const Route = createFileRoute("/app/new-invoice")({
   validateSearch: (search: Record<string, unknown>): NewInvoiceSearch => {
     const amount = Number(search["amount"]);
     const currency = search["currency"];
@@ -37,19 +36,19 @@ export const Route = createFileRoute("/new-invoice")({
       { title: "New invoice · PreFlight" },
       {
         name: "description",
-        content: "Draft an invoice in one line and check it against the client's AP rules before sending.",
+        content:
+          "Draft an invoice in one line and check it against the client's AP rules before sending.",
       },
       { property: "og:title", content: "New invoice · PreFlight" },
       {
         property: "og:description",
-        content: "Draft an invoice in one line and check it against the client's AP rules before sending.",
+        content:
+          "Draft an invoice in one line and check it against the client's AP rules before sending.",
       },
     ],
   }),
   component: NewInvoicePage,
 });
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function NewInvoicePage() {
   const { amount: prefillAmount, currency: prefillCurrency } = Route.useSearch();
@@ -58,15 +57,18 @@ function NewInvoicePage() {
   const clients = clientsQ.data ?? [];
 
   const [draft, setDraft] = useState<DraftInvoice>(() =>
-    emptyDraft({ amount: prefillAmount, currency: prefillCurrency }),
+    demoDraft({ amount: prefillAmount, currency: prefillCurrency }),
   );
   const [sent, setSent] = useState<InvoiceRecord | null>(null);
   const [flash, setFlash] = useState<{ field: FixField; lineId?: string | undefined } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   const client = clients.find((c) => c.id === draft.clientId) ?? null;
   const requirements = client?.requirements ?? null;
@@ -75,7 +77,7 @@ function NewInvoicePage() {
   const debouncedDraft = useDebouncedValue(draft, 300);
   const preflightQ = useQuery({
     queryKey: ["preflight", client?.id, requirements, debouncedDraft],
-    queryFn: () => runPreflight(debouncedDraft, requirements!),
+    queryFn: () => runPreflight(debouncedDraft, client!.id),
     enabled: Boolean(requirements),
     placeholderData: keepPreviousData,
   });
@@ -94,12 +96,12 @@ function NewInvoicePage() {
         description: `${record.number} · ${formatMoney(record.amount, record.currency)} to ${draft.sendTo || record.clientName}`,
       });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not send the invoice."),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Could not send the invoice."),
   });
 
   async function handleGenerate(text: string) {
-    await sleep(600);
-    const parsed = parseDraftPrompt(text, clients);
+    const parsed = await draftInvoice(text);
     const matched = clients.find((c) => c.id === parsed.clientId);
     setSent(null);
     setDraft((prev) => ({
@@ -111,7 +113,9 @@ function NewInvoicePage() {
       poNumber: "",
       vatId: "",
       invoiceDate: todayIso(),
-      lineItems: [newLineItem({ description: parsed.description, quantity: 1, unitPrice: parsed.amount })],
+      lineItems: [
+        newLineItem({ description: parsed.description, quantity: 1, unitPrice: parsed.amount }),
+      ],
     }));
     toast("Draft ready", {
       description: matched
@@ -126,8 +130,10 @@ function NewInvoicePage() {
     setDraft((d) => ({
       ...d,
       clientId,
-      clientName: !d.clientName.trim() || d.clientName === prev?.name ? (next?.name ?? "") : d.clientName,
-      sendTo: !d.sendTo.trim() || d.sendTo === prev?.contactEmail ? (next?.contactEmail ?? "") : d.sendTo,
+      clientName:
+        !d.clientName.trim() || d.clientName === prev?.name ? (next?.name ?? "") : d.clientName,
+      sendTo:
+        !d.sendTo.trim() || d.sendTo === prev?.contactEmail ? (next?.contactEmail ?? "") : d.sendTo,
     }));
   }
 
@@ -155,6 +161,7 @@ function NewInvoicePage() {
             <InvoicePreviewDialog draft={draft} summary={summary} />
             <Button
               type="button"
+              variant={canSend ? "pass" : "locked"}
               onClick={() => sendMutation.mutate()}
               disabled={!canSend || sendMutation.isPending}
               aria-label={
@@ -175,15 +182,15 @@ function NewInvoicePage() {
           <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
           <p className="text-foreground">
             <span className="font-medium text-info-strong">From the Pricer:</span>{" "}
-            {formatMoney(prefillAmount, prefillCurrency ?? "USD")} added as the first line item. Choose a
-            client and describe the work.
+            {formatMoney(prefillAmount, prefillCurrency ?? "USD")} added as the first line item.
+            Check the client and describe the work.
           </p>
         </div>
       )}
 
       <QuickDraftCard onGenerate={handleGenerate} />
 
-      <div className="grid items-start gap-6 wide:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 wide:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <DraftInvoiceForm
           draft={draft}
           clients={clients}

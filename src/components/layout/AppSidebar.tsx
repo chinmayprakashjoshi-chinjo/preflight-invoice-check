@@ -1,20 +1,26 @@
 import { Link } from "@tanstack/react-router";
-import { Calculator, Check, FilePlus2, FileStack, Users, type LucideIcon } from "lucide-react";
+import { resetDemoData } from "@/lib/api";
+import { Calculator, FilePlus2, FileStack, Users, type LucideIcon } from "lucide-react";
 
-const NAV: { to: "/clients" | "/new-invoice" | "/pricer" | "/invoices"; label: string; icon: LucideIcon }[] = [
-  { to: "/clients", label: "Clients", icon: Users },
-  { to: "/new-invoice", label: "New invoice", icon: FilePlus2 },
-  { to: "/pricer", label: "Pricer", icon: Calculator },
-  { to: "/invoices", label: "Invoices", icon: FileStack },
+const NAV: {
+  to: "/app/clients" | "/app/new-invoice" | "/app/pricer" | "/app/invoices";
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { to: "/app/clients", label: "Clients", icon: Users },
+  { to: "/app/new-invoice", label: "New invoice", icon: FilePlus2 },
+  { to: "/app/pricer", label: "Pricer", icon: Calculator },
+  { to: "/app/invoices", label: "Invoices", icon: FileStack },
 ];
 
 function Logo() {
   return (
-    <Link to="/new-invoice" className="flex items-center gap-2.5 rounded-md" aria-label="PreFlight home">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Check className="size-[18px]" strokeWidth={3} aria-hidden="true" />
-      </span>
-      <span className="text-base font-semibold tracking-tight text-foreground">PreFlight</span>
+    <Link
+      to="/"
+      className="flex cursor-pointer items-center rounded-md transition-opacity hover:opacity-85"
+      aria-label="PreFlight, go to home page"
+    >
+      <img src="/brand/preflight-logo.png" alt="PreFlight" className="h-8 w-auto" />
     </Link>
   );
 }
@@ -32,6 +38,12 @@ const linkBase =
   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors";
 const linkInactive = "text-muted-foreground hover:bg-muted hover:text-foreground";
 const linkActive = "bg-primary-tint text-primary";
+
+async function resetDemo() {
+  await resetDemoData();
+  // A full load clears every screen's local state and cached queries, then lands on the demo case.
+  window.location.assign("/app/new-invoice");
+}
 
 export function AppSidebar() {
   return (
@@ -64,6 +76,13 @@ export function AppSidebar() {
         <div className="border-t px-5 py-4">
           <SandboxBadge />
           <p className="mt-2 text-xs text-muted-foreground">Test mode. No real money moves.</p>
+          <button
+            type="button"
+            onClick={resetDemo}
+            className="mt-3 rounded text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Reset demo data
+          </button>
         </div>
       </aside>
 

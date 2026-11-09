@@ -93,13 +93,15 @@ export function DraftInvoiceForm({
           <h2 id="draft-title" className="text-base font-semibold text-foreground">
             Draft invoice
           </h2>
-          <p className="text-xs text-muted-foreground">Every field is editable. Checks update as you type.</p>
+          <p className="text-xs text-muted-foreground">
+            Every field is editable. Checks update as you type.
+          </p>
         </div>
       </div>
 
       <div className="space-y-6 p-5">
         {/* Client */}
-        <fieldset className="grid gap-4 sm:grid-cols-2">
+        <fieldset className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
           <legend className="sr-only">Client</legend>
           <Field id="client-account" label="Client account" hint="Whose AP rules apply.">
             <Select
@@ -143,10 +145,13 @@ export function DraftInvoiceForm({
         </fieldset>
 
         {/* Terms and references */}
-        <fieldset className="grid gap-4 sm:grid-cols-3">
+        <fieldset className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
           <legend className="sr-only">Terms and references</legend>
           <Field id="currency" label="Currency">
-            <Select value={draft.currency} onValueChange={(v) => set("currency", v as DraftInvoice["currency"])}>
+            <Select
+              value={draft.currency}
+              onValueChange={(v) => set("currency", v as DraftInvoice["currency"])}
+            >
               <SelectTrigger id="currency" className={flash("currency")} aria-label="Currency">
                 <SelectValue />
               </SelectTrigger>
@@ -164,7 +169,11 @@ export function DraftInvoiceForm({
               value={draft.paymentTerms}
               onValueChange={(v) => set("paymentTerms", v as DraftInvoice["paymentTerms"])}
             >
-              <SelectTrigger id="terms" className={flash("paymentTerms")} aria-label="Payment terms">
+              <SelectTrigger
+                id="terms"
+                className={flash("paymentTerms")}
+                aria-label="Payment terms"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -209,16 +218,24 @@ export function DraftInvoiceForm({
         </fieldset>
 
         {/* Line items */}
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="text-xs font-medium text-foreground">Line items</legend>
           <div className="mt-2 overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[520px] text-sm">
               <thead className="bg-muted text-left text-xs text-muted-foreground">
                 <tr>
-                  <th scope="col" className="px-3 py-2 font-medium">Description</th>
-                  <th scope="col" className="w-20 px-3 py-2 font-medium">Qty</th>
-                  <th scope="col" className="w-32 px-3 py-2 font-medium">Unit price</th>
-                  <th scope="col" className="w-32 px-3 py-2 text-right font-medium">Amount</th>
+                  <th scope="col" className="px-3 py-2 font-medium">
+                    Description
+                  </th>
+                  <th scope="col" className="w-20 px-3 py-2 font-medium">
+                    Qty
+                  </th>
+                  <th scope="col" className="w-32 px-3 py-2 font-medium">
+                    Unit price
+                  </th>
+                  <th scope="col" className="w-32 px-3 py-2 text-right font-medium">
+                    Amount
+                  </th>
                   <th scope="col" className="w-10 px-2 py-2">
                     <span className="sr-only">Remove</span>
                   </th>
@@ -241,7 +258,9 @@ export function DraftInvoiceForm({
                         onChange={(e) => updateLine(li.id, { description: e.target.value })}
                         placeholder="What did you deliver?"
                         className={cn(
-                          flashField === "lineItemDescription" && flashLineId === li.id && "field-flash",
+                          flashField === "lineItemDescription" &&
+                            flashLineId === li.id &&
+                            "field-flash",
                         )}
                       />
                     </td>
@@ -253,7 +272,9 @@ export function DraftInvoiceForm({
                         step="1"
                         inputMode="decimal"
                         value={li.quantity}
-                        onChange={(e) => updateLine(li.id, { quantity: Math.max(0, Number(e.target.value) || 0) })}
+                        onChange={(e) =>
+                          updateLine(li.id, { quantity: Math.max(0, Number(e.target.value) || 0) })
+                        }
                         className="tabular"
                       />
                     </td>
@@ -265,7 +286,9 @@ export function DraftInvoiceForm({
                         step="0.01"
                         inputMode="decimal"
                         value={li.unitPrice}
-                        onChange={(e) => updateLine(li.id, { unitPrice: Math.max(0, Number(e.target.value) || 0) })}
+                        onChange={(e) =>
+                          updateLine(li.id, { unitPrice: Math.max(0, Number(e.target.value) || 0) })
+                        }
                         className="tabular"
                       />
                     </td>

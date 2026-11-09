@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Clock, Send, XCircle, type LucideIcon } from "lucide-react";
+import { CheckCircle2, CircleDashed, Clock, Send, type LucideIcon } from "lucide-react";
 import type { InvoiceStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -7,11 +7,6 @@ const STATUS: Record<InvoiceStatus, { label: string; icon: LucideIcon; className
   sent: { label: "Sent", icon: Send, className: "bg-primary-tint text-primary" },
   paid: { label: "Paid", icon: CheckCircle2, className: "bg-pass-tint text-pass-strong" },
   overdue: { label: "Overdue", icon: Clock, className: "bg-warning-tint text-warning-strong" },
-  cancelled: {
-    label: "Cancelled",
-    icon: XCircle,
-    className: "bg-neutral-tint text-neutral-strong [&>span]:line-through",
-  },
 };
 
 export const STATUS_LABELS: Record<InvoiceStatus, string> = Object.fromEntries(
@@ -24,7 +19,7 @@ export function StatusChip({ status, className }: { status: InvoiceStatus; class
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none",
+        "inline-flex h-6 items-center whitespace-nowrap gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none",
         s.className,
         className,
       )}
