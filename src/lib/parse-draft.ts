@@ -1,13 +1,4 @@
-import type { Client, Currency } from "./types";
-
-export interface ParsedDraft {
-  clientName: string;
-  amount: number;
-  currency: Currency;
-  description: string;
-  /** Best-guess client account for the name, if any. */
-  clientId: string | null;
-}
+import type { Client, Currency, ParsedDraft } from "./types";
 
 export const EXAMPLE_PROMPT = "Invoice Acme Corp $1,200 for site redesign";
 

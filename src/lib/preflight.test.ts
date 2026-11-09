@@ -18,7 +18,8 @@ const acmeDraft: DraftInvoice = {
   lineItems: [{ id: "li-1", description: "site redesign", quantity: 1, unitPrice: 1200 }],
 };
 
-const find = (draft: DraftInvoice, req: ClientRequirements, id: string) => preflight(draft, req).find((i) => i.id === id);
+const find = (draft: DraftInvoice, req: ClientRequirements, id: string) =>
+  preflight(draft, req).find((i) => i.id === id);
 
 describe("preflight rules", () => {
   it("default Acme draft: 2 blockers, 1 warning, 3 passed", () => {
@@ -31,7 +32,9 @@ describe("preflight rules", () => {
 
   it("client name must match the legal entity exactly", () => {
     expect(find(acmeDraft, acme, "legal-name")?.severity).toBe("blocker");
-    expect(find({ ...acmeDraft, clientName: "Acme Corporation Ltd" }, acme, "legal-name")?.severity).toBe("pass");
+    expect(
+      find({ ...acmeDraft, clientName: "Acme Corporation Ltd" }, acme, "legal-name")?.severity,
+    ).toBe("pass");
   });
 
   it("currency outside the allowed list is a blocker", () => {
@@ -39,22 +42,34 @@ describe("preflight rules", () => {
   });
 
   it("missing VAT ID is a blocker when required", () => {
-    const nw: DraftInvoice = { ...acmeDraft, clientId: "northwind", currency: "EUR", paymentTerms: "Net 15" };
+    const nw: DraftInvoice = {
+      ...acmeDraft,
+      clientId: "northwind",
+      currency: "EUR",
+      paymentTerms: "Net 15",
+    };
     expect(find(nw, northwind, "vat-id")?.severity).toBe("blocker");
   });
 
   it("different payment terms are only a warning", () => {
-    expect(find({ ...acmeDraft, paymentTerms: "Net 45" }, acme, "payment-terms")?.severity).toBe("warning");
+    expect(find({ ...acmeDraft, paymentTerms: "Net 45" }, acme, "payment-terms")?.severity).toBe(
+      "warning",
+    );
   });
 
   it("descriptions under 3 words or generic are warnings", () => {
     expect(find(acmeDraft, acme, "description")?.severity).toBe("warning");
-    const generic = { ...acmeDraft, lineItems: [{ id: "li-1", description: "design", quantity: 1, unitPrice: 1200 }] };
+    const generic = {
+      ...acmeDraft,
+      lineItems: [{ id: "li-1", description: "design", quantity: 1, unitPrice: 1200 }],
+    };
     expect(find(generic, acme, "description")?.severity).toBe("warning");
   });
 
   it("invoice must go to the AP email", () => {
-    expect(find({ ...acmeDraft, sendTo: "sam@acme.example" }, acme, "ap-email")?.severity).toBe("blocker");
+    expect(find({ ...acmeDraft, sendTo: "sam@acme.example" }, acme, "ap-email")?.severity).toBe(
+      "blocker",
+    );
     expect(find(acmeDraft, acme, "ap-email")?.severity).toBe("pass");
   });
 

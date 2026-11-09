@@ -56,6 +56,8 @@ export type RequirementKey = z.infer<typeof RequirementKeySchema>;
 export const RequirementMetaSchema = z.object({
   evidence: z.string(),
   confidence: ConfidenceSchema,
+  /** True when the requirement was just learned from a pasted rejection email. */
+  isNew: z.boolean().optional(),
   /** True once the user has corrected the extracted value by hand. */
   edited: z.boolean().optional(),
 });
@@ -131,7 +133,7 @@ export type Issue = z.infer<typeof IssueSchema>;
 
 /* ---------- Sent / stored invoices ---------- */
 
-export const InvoiceStatusSchema = z.enum(["draft", "sent", "paid", "overdue", "cancelled"]);
+export const InvoiceStatusSchema = z.enum(["draft", "sent", "paid", "overdue"]);
 export type InvoiceStatus = z.infer<typeof InvoiceStatusSchema>;
 
 export const InvoiceRecordSchema = z.object({
@@ -144,6 +146,11 @@ export const InvoiceRecordSchema = z.object({
   issueDate: z.string(),
   dueDate: z.string(),
   preflight: z.object({ blockers: z.number(), warnings: z.number() }),
+  /** PayPal invoice ID, once sent (mock until the backend is connected). */
+  paypalInvoiceId: z.string().optional(),
+  payerLink: z.string().optional(),
+  /** Last status change, shown in the Updated column. */
+  updatedNote: z.string(),
 });
 export type InvoiceRecord = z.infer<typeof InvoiceRecordSchema>;
 
@@ -170,3 +177,27 @@ export const PricingResultSchema = z.object({
   explanation: z.string(),
 });
 export type PricingResult = z.infer<typeof PricingResultSchema>;
+
+/* ---------- API request / response shapes ---------- */
+
+/** Input for POST /api/requirements: an uploaded PDF name, pasted text, or both. */
+export const ExtractInputSchema = z.object({
+  clientId: z.string(),
+  fileName: z.string().optional(),
+  text: z.string().optional(),
+});
+export type ExtractInput = z.infer<typeof ExtractInputSchema>;
+
+/** Response of POST /api/draft: a one-line prompt turned into draft fields. */
+export const ParsedDraftSchema = z.object({
+  clientName: z.string(),
+  amount: z.number(),
+  currency: CurrencySchema,
+  description: z.string(),
+  /** Best-guess client account for the name, if any. */
+  clientId: z.string().nullable(),
+});
+export type ParsedDraft = z.infer<typeof ParsedDraftSchema>;
+
+export const LearnInputSchema = z.object({ clientId: z.string(), text: z.string() });
+export type LearnInput = z.infer<typeof LearnInputSchema>;

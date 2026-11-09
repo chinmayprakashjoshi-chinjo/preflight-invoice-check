@@ -7,6 +7,7 @@ export interface RequirementRow {
   evidence: string;
   confidence: Confidence;
   edited: boolean;
+  isNew: boolean;
 }
 
 export const REQUIREMENT_LABELS: Record<RequirementKey, string> = {
@@ -58,6 +59,7 @@ export function requirementRows(req: ClientRequirements): RequirementRow[] {
       evidence: meta.evidence,
       confidence: meta.confidence,
       edited: Boolean(meta.edited),
+      isNew: Boolean(meta.isNew),
     };
   });
 }
@@ -67,6 +69,9 @@ export function markEdited(req: ClientRequirements, key: RequirementKey): Client
   const meta = req.meta[key];
   return {
     ...req,
-    meta: { ...req.meta, [key]: { evidence: meta?.evidence ?? "Entered by you.", confidence: "high", edited: true } },
+    meta: {
+      ...req.meta,
+      [key]: { evidence: meta?.evidence ?? "Entered by you.", confidence: "high", edited: true },
+    },
   };
 }

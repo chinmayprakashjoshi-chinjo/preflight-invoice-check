@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getClients, getInvoices } from "./api";
+import { getClients, listInvoices } from "./api";
 
 export const clientsQuery = queryOptions({
   queryKey: ["clients"],
@@ -9,6 +9,6 @@ export const clientsQuery = queryOptions({
 
 export const invoicesQuery = queryOptions({
   queryKey: ["invoices"],
-  queryFn: getInvoices,
+  queryFn: listInvoices,
   staleTime: Infinity,
 });

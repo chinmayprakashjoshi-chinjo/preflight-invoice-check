@@ -25,10 +25,16 @@ const GENERIC_DESCRIPTIONS = new Set([
   "fee",
   "fees",
   "project",
+  "design work",
+  "web design",
+  "services rendered",
 ]);
 
 export function isWeakDescription(description: string): boolean {
-  const cleaned = description.trim().toLowerCase().replace(/[.,;:!]+$/g, "");
+  const cleaned = description
+    .trim()
+    .toLowerCase()
+    .replace(/[.,;:!]+$/g, "");
   if (!cleaned) return true;
   const words = cleaned.split(/\s+/).filter(Boolean);
   if (words.length < 3) return true;
@@ -117,8 +123,8 @@ export function preflight(invoice: DraftInvoice, req: ClientRequirements): Issue
     issues.push({
       id: "currency",
       severity: "blocker",
-      title: `${invoice.currency} is not accepted`,
-      message: `This client only pays in ${req.allowedCurrencies.join(" or ")}.`,
+      title: "Currency not accepted",
+      message: `${invoice.currency} is not accepted. This client only pays in ${req.allowedCurrencies.join(" or ")}.`,
       evidence: quote("allowedCurrencies"),
       fixLabel: `Switch to ${target}`,
       fixField: "currency",

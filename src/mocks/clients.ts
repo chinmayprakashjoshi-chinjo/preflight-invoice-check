@@ -38,7 +38,8 @@ export const EXTRACTED_REQUIREMENTS = {
         confidence: "high",
       },
       apEmail: {
-        evidence: "Submit invoices as PDF to ap@acme.example. Invoices sent elsewhere are not processed.",
+        evidence:
+          "Submit invoices as PDF to ap@acme.example. Invoices sent elsewhere are not processed.",
         confidence: "high",
       },
       oneInvoicePerFile: {
@@ -107,8 +108,7 @@ export const EXTRACTED_REQUIREMENTS = {
         confidence: "high",
       },
       apEmail: {
-        evidence:
-          "Invoices must go to payables@globex.example, not to your project contact.",
+        evidence: "Invoices must go to payables@globex.example, not to your project contact.",
         confidence: "high",
       },
       oneInvoicePerFile: {
@@ -130,7 +130,11 @@ export const MOCK_CLIENTS: Client[] = [
     name: "Acme Corporation Ltd",
     contactEmail: "ap@acme.example",
     industry: "Manufacturing",
-    sourceDoc: { fileName: "acme-supplier-invoicing-policy.pdf", kind: "AP policy email", pages: 3 },
+    sourceDoc: {
+      fileName: "acme-supplier-invoicing-policy.pdf",
+      kind: "AP policy email",
+      pages: 3,
+    },
     docStatus: "extracted",
     requirements: EXTRACTED_REQUIREMENTS.acme,
   },
@@ -139,7 +143,11 @@ export const MOCK_CLIENTS: Client[] = [
     name: "Northwind Studio",
     contactEmail: "finance@northwind.example",
     industry: "Design agency",
-    sourceDoc: { fileName: "northwind-freelancer-onboarding.pdf", kind: "Onboarding form", pages: 2 },
+    sourceDoc: {
+      fileName: "northwind-freelancer-onboarding.pdf",
+      kind: "Onboarding form",
+      pages: 2,
+    },
     docStatus: "extracted",
     requirements: EXTRACTED_REQUIREMENTS.northwind,
   },
@@ -149,9 +157,7 @@ export const MOCK_CLIENTS: Client[] = [
     contactEmail: "projects@globex.example",
     industry: "Energy",
     sourceDoc: { fileName: "globex-vendor-guide-2026.pdf", kind: "PDF vendor guide", pages: 14 },
-    docStatus: "error",
-    docError:
-      "The PDF looks like a scanned image with no text layer.",
-    requirements: null,
+    docStatus: "extracted",
+    requirements: EXTRACTED_REQUIREMENTS.globex,
   },
 ];
