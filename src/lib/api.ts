@@ -5,7 +5,7 @@
  * VITE_API_BASE_URL and replace each function body with a fetch to `${API_BASE_URL}/...`.
  * Components and their types stay the same.
  */
-import { EXTRACTED_REQUIREMENTS, MOCK_CLIENTS } from "@/mocks/clients";
+import { getExtractedRequirements, MOCK_CLIENTS } from "@/mocks/clients";
 import { MOCK_INVOICES } from "@/mocks/invoices";
 import { dueDateFor, invoiceTotal } from "./format";
 import { preflight, summarize } from "./preflight";
@@ -20,7 +20,7 @@ import type {
   PricingResult,
 } from "./types";
 
-export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "";
+export const API_BASE_URL: string = import.meta.env["VITE_API_BASE_URL"] ?? "";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const clone = <T>(v: T): T => structuredClone(v);
@@ -51,7 +51,7 @@ export async function extractRequirements(
 ): Promise<Client> {
   await delay(1500);
   const client = db.clients.find((c) => c.id === clientId);
-  const extracted = EXTRACTED_REQUIREMENTS[clientId];
+  const extracted = getExtractedRequirements(clientId);
   if (!client || !extracted) throw new ApiError("Could not read the AP document.");
   client.requirements = clone(extracted);
   client.docStatus = "extracted";

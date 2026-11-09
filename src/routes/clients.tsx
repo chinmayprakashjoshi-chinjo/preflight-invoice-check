@@ -28,8 +28,8 @@ import type { Client, ClientRequirements, RequirementKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/clients")({
-  validateSearch: (search: Record<string, unknown>): { client?: string } => ({
-    client: typeof search.client === "string" ? search.client : undefined,
+  validateSearch: (search: Record<string, unknown>): { client?: string | undefined } => ({
+    client: typeof search["client"] === "string" ? search["client"] : undefined,
   }),
   head: () => ({
     meta: [

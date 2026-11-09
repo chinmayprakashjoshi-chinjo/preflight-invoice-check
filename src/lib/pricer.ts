@@ -1,6 +1,13 @@
-import { PRICING_CONFIG, type PricingConfig } from "@/config/pricing-config";
+import { PRICING_CONFIG } from "@/config/pricing-config";
 import { formatMoney, formatPercent } from "./format";
-import type { PricingInput, PricingResult } from "./types";
+import type { Currency, PricingInput, PricingResult } from "./types";
+
+export interface PricingRates {
+  feeRate: number;
+  fixedFee: Record<Currency, number>;
+  fxSpread: number;
+  midRates: Record<Currency, Record<Currency, number>>;
+}
 
 function ceil2(n: number): number {
   // Small epsilon guards against float noise like 1243.3300000001 -> 1243.34
@@ -23,7 +30,7 @@ function round2(n: number): number {
  */
 export function calcPricing(
   input: PricingInput,
-  config: Pick<PricingConfig, "feeRate" | "fixedFee" | "fxSpread" | "midRates"> = PRICING_CONFIG,
+  config: PricingRates = PRICING_CONFIG,
 ): PricingResult {
   const { targetNet, currency, clientCurrency } = input;
   const cross = input.crossCurrency && clientCurrency !== currency;

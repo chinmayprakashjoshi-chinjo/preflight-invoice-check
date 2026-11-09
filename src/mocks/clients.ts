@@ -4,7 +4,7 @@ import type { Client, ClientRequirements } from "@/lib/types";
  * Requirements PreFlight "extracts" from each client's AP document.
  * Kept separate so the Clients screen can simulate extraction.
  */
-export const EXTRACTED_REQUIREMENTS: Record<string, ClientRequirements> = {
+export const EXTRACTED_REQUIREMENTS = {
   acme: {
     poRequired: true,
     openPoNumber: "PO-2026-04418",
@@ -117,7 +117,12 @@ export const EXTRACTED_REQUIREMENTS: Record<string, ClientRequirements> = {
       },
     },
   },
-};
+} satisfies Record<string, ClientRequirements>;
+
+export function getExtractedRequirements(clientId: string): ClientRequirements | undefined {
+  const all: Record<string, ClientRequirements> = EXTRACTED_REQUIREMENTS;
+  return all[clientId];
+}
 
 export const MOCK_CLIENTS: Client[] = [
   {
@@ -146,7 +151,7 @@ export const MOCK_CLIENTS: Client[] = [
     sourceDoc: { fileName: "globex-vendor-guide-2026.pdf", kind: "PDF vendor guide", pages: 14 },
     docStatus: "error",
     docError:
-      "Could not read the AP document. The PDF looks like a scanned image with no text layer.",
+      "The PDF looks like a scanned image with no text layer.",
     requirements: null,
   },
 ];

@@ -30,7 +30,7 @@ interface DraftInvoiceFormProps {
   onClientChange: (clientId: string) => void;
   /** Field that a pre-flight fix just changed, highlighted briefly. */
   flashField: FixField | null;
-  flashLineId?: string;
+  flashLineId?: string | undefined;
 }
 
 function Field({
@@ -103,7 +103,7 @@ export function DraftInvoiceForm({
           <legend className="sr-only">Client</legend>
           <Field id="client-account" label="Client account" hint="Whose AP rules apply.">
             <Select
-              value={draft.clientId ?? undefined}
+              value={draft.clientId ?? ""}
               onValueChange={onClientChange}
               disabled={clientsLoading}
             >

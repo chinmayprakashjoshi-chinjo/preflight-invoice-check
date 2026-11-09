@@ -19,16 +19,17 @@ import { clientsQuery } from "@/lib/queries";
 import type { Currency, DraftInvoice, FixField, InvoiceRecord, Issue } from "@/lib/types";
 
 interface NewInvoiceSearch {
-  amount?: number;
-  currency?: Currency;
+  amount?: number | undefined;
+  currency?: Currency | undefined;
 }
 
 export const Route = createFileRoute("/new-invoice")({
   validateSearch: (search: Record<string, unknown>): NewInvoiceSearch => {
-    const amount = Number(search.amount);
+    const amount = Number(search["amount"]);
+    const currency = search["currency"];
     return {
       amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
-      currency: search.currency === "USD" || search.currency === "EUR" ? search.currency : undefined,
+      currency: currency === "USD" || currency === "EUR" ? currency : undefined,
     };
   },
   head: () => ({
@@ -60,7 +61,7 @@ function NewInvoicePage() {
     emptyDraft({ amount: prefillAmount, currency: prefillCurrency }),
   );
   const [sent, setSent] = useState<InvoiceRecord | null>(null);
-  const [flash, setFlash] = useState<{ field: FixField; lineId?: string } | null>(null);
+  const [flash, setFlash] = useState<{ field: FixField; lineId?: string | undefined } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {

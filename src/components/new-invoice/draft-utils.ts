@@ -14,7 +14,7 @@ export function newLineItem(partial: Partial<LineItem> = {}): LineItem {
   };
 }
 
-export function emptyDraft(opts: { amount?: number; currency?: Currency } = {}): DraftInvoice {
+export function emptyDraft(opts: { amount?: number | undefined; currency?: Currency | undefined } = {}): DraftInvoice {
   return {
     clientId: null,
     clientName: "",

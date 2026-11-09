@@ -35,7 +35,7 @@ export function parseDraftPrompt(text: string, clients: Client[]): ParsedDraft {
   let description = FALLBACK.description;
 
   if (amountMatch && amountMatch.index !== undefined) {
-    const whole = amountMatch[2].replace(/[,\s]/g, "");
+    const whole = (amountMatch[2] ?? "").replace(/[,\s]/g, "");
     const cents = amountMatch[3] ?? "0";
     const parsed = Number(`${whole}.${cents}`);
     if (parsed > 0) amount = parsed;

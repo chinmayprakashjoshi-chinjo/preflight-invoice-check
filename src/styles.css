@@ -18,8 +18,8 @@
 
 @theme inline {
   /* desk: sidebar appears, single-column stack ends. wide: two side-by-side work panels. */
-  --breakpoint-desk: 900px;
-  --breakpoint-wide: 1100px;
+  --breakpoint-desk: 56.25rem; /* 900px */
+  --breakpoint-wide: 68.75rem; /* 1100px */
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
