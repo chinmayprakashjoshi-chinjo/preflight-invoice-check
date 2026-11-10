@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/*"],
+      "@shared": ["../shared/index.ts"],
+      "@/*": ["./src/*"],
+      "zod": ["./node_modules/zod"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "lib/**/*.ts",
+    "services/**/*.ts",
+    "routes/**/*.ts",
+    "server.ts",
+    "scripts/**/*.ts",
+    "../shared/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
