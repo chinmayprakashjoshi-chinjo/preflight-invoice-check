@@ -1,6 +1,6 @@
-import { PRICING_CONFIG } from "./pricing-config";
-import { formatMoney, formatPercent } from "./format";
-import type { Currency, PricingInput, PricingResult } from "./types";
+import { PRICING_CONFIG } from "./pricing-config.js";
+import { formatMoney, formatPercent } from "./format.js";
+import type { Currency, PricingInput, PricingResult } from "./types.js";
 
 export interface PricingRates {
   feeRate: number;

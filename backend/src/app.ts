@@ -2,22 +2,52 @@ import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { clientsRouter } from "./routes/clients";
-import { requirementsRouter } from "./routes/requirements";
-import { draftRouter } from "./routes/draft";
-import { preflightRouter } from "./routes/preflight";
-import { pricerRouter } from "./routes/pricer";
-import { sendRouter } from "./routes/send";
-import { invoicesRouter } from "./routes/invoices";
-import { webhooksRouter } from "./routes/webhooks";
+import { clientsRouter } from "./routes/clients.js";
+import { requirementsRouter } from "./routes/requirements.js";
+import { draftRouter } from "./routes/draft.js";
+import { preflightRouter } from "./routes/preflight.js";
+import { pricerRouter } from "./routes/pricer.js";
+import { sendRouter } from "./routes/send.js";
+import { invoicesRouter } from "./routes/invoices.js";
+import { webhooksRouter } from "./routes/webhooks.js";
+import { devRouter } from "./routes/dev.js";
 
 dotenv.config();
 
 export const app: Express = express();
 
-// Standard middleware
-app.use(cors());
-app.use(express.json());
+// Configure CORS: allows only APP_BASE_URL (plus localhost:8080 when NODE_ENV is not production)
+const allowedOrigins: string[] = [];
+if (process.env.APP_BASE_URL) {
+  allowedOrigins.push(process.env.APP_BASE_URL.trim().replace(/\/+$/, ""));
+}
+if (process.env.NODE_ENV !== "production") {
+  allowedOrigins.push("http://localhost:8080");
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server, verification scripts)
+      if (!origin) return callback(null, true);
+      const normalized = origin.trim().replace(/\/+$/, "");
+      if (allowedOrigins.includes(normalized)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
+
+// Capture raw body for PayPal webhook signature verification (API-13 & Hard Rule 8)
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString("utf-8");
+    },
+  })
+);
 
 // Health check
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -38,6 +68,7 @@ app.use("/api/pricer", pricerRouter);
 app.use("/api/send", sendRouter);
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/webhooks", webhooksRouter);
+app.use("/api/dev", devRouter);
 
 // Central error handler matching PRD error format
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

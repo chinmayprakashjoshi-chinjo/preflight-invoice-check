@@ -4,7 +4,7 @@ import {
   getClientById,
   updateClientRequirements,
   updateSingleRule,
-} from "../controllers/clientController";
+} from "../controllers/clientController.js";
 
 export const clientsRouter = Router();
 

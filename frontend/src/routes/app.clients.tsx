@@ -214,14 +214,17 @@ function ClientDetail({ client }: { client: Client }) {
   const extract = useMutation({
     mutationFn: (input: { fileName?: string | undefined; text?: string | undefined }) =>
       extractRequirements({ clientId: client.id, ...input }),
-    onSuccess: (updated) => {
+    onSuccess: (updated, variables) => {
       replaceClient(updated);
       if (updated.docStatus === "error") {
         toast.error("Document unreadable", { description: updated.docError });
         return;
       }
+      const sourceLabel = variables?.text?.trim()
+        ? "pasted text"
+        : (variables?.fileName || updated.sourceDoc?.fileName || "uploaded document");
       toast.success("Requirements extracted", {
-        description: `${pluralize(Object.keys(updated.requirements?.meta ?? {}).length, "requirement")} found in ${updated.sourceDoc.fileName}.`,
+        description: `${pluralize(Object.keys(updated.requirements?.meta ?? {}).length, "requirement")} found in ${sourceLabel}.`,
       });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not read the AP document."),

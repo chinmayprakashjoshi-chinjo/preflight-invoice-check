@@ -4,7 +4,7 @@ import {
   listInvoices,
   getInvoiceById,
   markInvoicePaid,
-} from "../controllers/invoiceController";
+} from "../controllers/invoiceController.js";
 
 export const invoicesRouter = Router();
 

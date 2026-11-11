@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { generateInvoice } from "../controllers/invoiceController";
+import { generateInvoice } from "../controllers/invoiceController.js";
 
 export const sendRouter = Router();
 

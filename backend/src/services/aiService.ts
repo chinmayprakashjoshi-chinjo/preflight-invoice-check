@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { preflight } from "../../../shared/preflight";
-import type { DraftInvoice, ClientRequirements, Issue } from "../../../shared/types";
+import { preflight } from "../../../shared/preflight.js";
+import type { DraftInvoice, ClientRequirements, Issue } from "../../../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,24 +23,19 @@ export interface AICoPilotAssessment {
   blockers: Issue[];
   warnings: Issue[];
   passed: Issue[];
-  aiReview: AICoPilotReview;
+  aiReview: AICoPilotReview | null;
 }
 
 /**
  * Calls the configured LLM (Google Gemini or OpenAI) to perform qualitative AP checks.
  */
-async function callLLM(prompt: string): Promise<AICoPilotReview> {
+async function callLLM(prompt: string): Promise<AICoPilotReview | null> {
   const apiKey = process.env.LLM_API_KEY?.trim();
-  const model = process.env.LLM_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.LLM_MODEL?.trim() || "gemini-3.5-flash";
 
   if (!apiKey) {
-    // Graceful fallback when LLM_API_KEY is not yet populated
-    return {
-      approved: true,
-      score: 95,
-      summary: "AI Co-pilot heuristic review: Line items and terms appear standard and compliant.",
-      recommendations: ["Ensure deliverables are signed off by the client project manager."],
-    };
+    console.warn("[aiService] LLM call skipped: LLM_API_KEY is not configured.");
+    return null;
   }
 
   // Detect OpenAI vs Google Gemini based on key format or model name
@@ -60,7 +55,7 @@ async function callLLM(prompt: string): Promise<AICoPilotReview> {
             {
               role: "system",
               content:
-                "You are PreFlight's Accounts Payable (AP) AI Co-pilot. Evaluate the draft invoice for compliance and clarity. Return ONLY a valid JSON object matching: {\"approved\": boolean, \"score\": number (0-100), \"summary\": string, \"recommendations\": string[]}.",
+                'You are PreFlight\'s Accounts Payable (AP) AI Co-pilot. Evaluate the draft invoice for compliance and clarity. Return ONLY a valid JSON object matching: {"approved": boolean, "score": number (0-100), "summary": string, "recommendations": string[]}.',
             },
             { role: "user", content: prompt },
           ],
@@ -80,12 +75,13 @@ async function callLLM(prompt: string): Promise<AICoPilotReview> {
       return AICoPilotReviewSchema.parse(parsed);
     } else {
       // Default to Google Gemini API
-      const geminiModel = model.includes("gemini") ? model : "gemini-2.5-flash";
+      const geminiModel = model.replace(/^models\//, "");
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
 
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(8000),
         body: JSON.stringify({
           contents: [
             {
@@ -115,13 +111,8 @@ async function callLLM(prompt: string): Promise<AICoPilotReview> {
     }
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.warn("[aiService] LLM call failed, falling back to local heuristic validation:", errorMsg);
-    return {
-      approved: true,
-      score: 88,
-      summary: "AI Co-pilot fallback: Deterministic checks passed; deliverables ready for invoicing.",
-      recommendations: ["Review invoice terms against client agreement."],
-    };
+    console.warn("[aiService] LLM qualitative review call failed:", errorMsg);
+    return null;
   }
 }
 
@@ -164,9 +155,15 @@ Determine if this invoice is professional, unambiguous, and audit-friendly. Flag
 
   const aiReview = await callLLM(prompt);
 
-  // Per CLAUDE.md Hard Rule 4: Blockers come only from code rules.
-  // The overall approval requires ZERO code blockers AND an approved AI assessment.
-  const isApproved = blockers.length === 0 && aiReview.approved;
+  // Per CLAUDE.md Hard Rule 4 & prompt requirements:
+  // The AI review is a soft warning only.
+  // It must never say approved: true when blockers exist.
+  if (aiReview && blockers.length > 0) {
+    aiReview.approved = false;
+  }
+
+  // It must never affect blockers. Blockers come strictly from code rules.
+  const isApproved = blockers.length === 0;
 
   return {
     approved: isApproved,
@@ -177,6 +174,178 @@ Determine if this invoice is professional, unambiguous, and audit-friendly. Flag
   };
 }
 
+/* ---------- Document Extraction Schema & Intelligence ---------- */
+
+export const ExtractedRuleSchema = z.object({
+  key: z.enum([
+    "poRequired",
+    "legalName",
+    "allowedCurrencies",
+    "vatRequired",
+    "paymentTerms",
+    "apEmail",
+    "oneInvoicePerFile",
+  ]),
+  label: z.string(),
+  value: z.union([z.boolean(), z.string(), z.array(z.string())]),
+  evidence: z.string().default("Extracted from procurement policy"),
+  confidence: z.enum(["high", "medium", "low"]).default("high"),
+  evidenceVerified: z.boolean().default(false),
+});
+
+export type ExtractedRule = z.infer<typeof ExtractedRuleSchema>;
+
+export const ExtractedRulesResponseSchema = z.object({
+  rules: z.array(ExtractedRuleSchema),
+});
+
+/**
+ * Normalizes text and evidence strings to verify verbatim presence (NFR-04).
+ */
+export function verifyVerbatim(evidence: string, sourceText: string): boolean {
+  if (!evidence || !sourceText) return false;
+  const cleanSource = sourceText.replace(/\s+/g, " ").toLowerCase();
+  const cleanEvidence = evidence
+    .replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (cleanEvidence.length < 5) return true;
+  return cleanSource.includes(cleanEvidence);
+}
+
+/**
+ * Calls Gemini LLM to extract structured AP requirements from document text.
+ * Implements CLAUDE.md rule 3: Zod validate, retry once, then throw EXTRACTION_FAILED.
+ * Never uses heuristic fallback data per user instruction.
+ */
+export async function extractAPRequirements(
+  sourceText: string,
+  clientName?: string,
+): Promise<ExtractedRule[]> {
+  const apiKey = process.env.LLM_API_KEY?.trim();
+  const model = process.env.LLM_MODEL?.trim() || "gemini-3.5-flash";
+
+  if (!apiKey) {
+    const error: any = new Error("Missing LLM_API_KEY in environment");
+    error.code = "EXTRACTION_FAILED";
+    error.statusCode = 502;
+    throw error;
+  }
+
+  const prompt = `You are PreFlight's Accounts Payable (AP) Document Intelligence Engine.
+Analyze the following client procurement document and extract the vendor payment requirements for ${clientName || "the client"}.
+
+Available Rule Keys (use exact keys):
+- "poRequired": boolean (true if PO reference is mandatory, false if optional/not required)
+- "legalName": string (exact legal registered entity name required on the invoice)
+- "allowedCurrencies": string[] (array of accepted currency codes, e.g. ["USD"] or ["EUR"])
+- "vatRequired": boolean (true if Tax ID / VAT ID is required, false if not)
+- "paymentTerms": "Net 15" | "Net 30" | "Net 45" (standard settlement terms)
+- "apEmail": string (inbox where invoices must be dispatched)
+- "oneInvoicePerFile": boolean (true if only 1 invoice per PDF is permitted)
+
+CRITICAL INSTRUCTIONS:
+1. "evidence" MUST BE an exact, verbatim quotation copied directly from the text.
+2. "confidence" must be "high", "medium", or "low".
+3. Return ONLY a valid JSON object matching:
+{
+  "rules": [
+    {
+      "key": "poRequired",
+      "label": "Purchase Order Reference",
+      "value": false,
+      "evidence": "exact quote from text",
+      "confidence": "high"
+    }
+  ]
+}
+
+Document Text:
+${sourceText}`;
+
+  const geminiModel = model.replace(/^models\//, "");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+
+  async function attemptExtraction(): Promise<ExtractedRule[] | null> {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.1,
+          maxOutputTokens: 2048,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[aiService] Gemini extraction API error (${res.status}): ${errText}`);
+      return null;
+    }
+
+    const json = (await res.json()) as any;
+    const rawContent = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const parsed = JSON.parse(rawContent);
+
+    let rawRules: any[] = [];
+    if (parsed && Array.isArray(parsed.rules)) {
+      rawRules = parsed.rules;
+    } else if (Array.isArray(parsed)) {
+      rawRules = parsed;
+    }
+
+    const validated = ExtractedRulesResponseSchema.safeParse({ rules: rawRules });
+    if (!validated.success || validated.data.rules.length === 0) {
+      console.warn("[aiService] LLM output failed Zod validation:", validated.error?.message);
+      return null;
+    }
+
+    // Run NFR-04 verbatim verification on each rule
+    return validated.data.rules.map((rule) => {
+      const isVerified = verifyVerbatim(rule.evidence, sourceText);
+      return {
+        ...rule,
+        evidenceVerified: isVerified,
+        confidence: isVerified ? rule.confidence : "low",
+      };
+    });
+  }
+
+  // Attempt 1
+  try {
+    const rules = await attemptExtraction();
+    if (rules && rules.length > 0) {
+      return rules;
+    }
+  } catch (err: any) {
+    console.warn("[aiService] Extraction attempt 1 failed:", err.message || err);
+  }
+
+  // Retry once per CLAUDE.md Rule 3
+  console.log("[aiService] Retrying LLM extraction once per CLAUDE.md rule 3...");
+  await new Promise((r) => setTimeout(r, 1500));
+  try {
+    const retryRules = await attemptExtraction();
+    if (retryRules && retryRules.length > 0) {
+      return retryRules;
+    }
+  } catch (retryErr: any) {
+    console.warn("[aiService] Extraction retry attempt failed:", retryErr.message || retryErr);
+  }
+
+  // Fail strictly with EXTRACTION_FAILED per CLAUDE.md
+  const failError: any = new Error("Failed to extract requirements from document after retry.");
+  failError.code = "EXTRACTION_FAILED";
+  failError.statusCode = 502;
+  throw failError;
+}
+
 export default {
   validateInvoiceWithAICoPilot,
+  extractAPRequirements,
+  verifyVerbatim,
 };

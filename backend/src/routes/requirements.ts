@@ -1,12 +1,17 @@
 import { Router, Request, Response } from "express";
-import { db } from "../../lib/db";
+import { db } from "../../lib/db.js";
+import {
+  extractRequirements,
+  handleLearnFromEmail,
+} from "../controllers/clientController.js";
 
 export const requirementsRouter = Router();
 
-// POST /api/requirements (Extract from doc/text)
-requirementsRouter.post("/", async (_req: Request, res: Response) => {
-  res.json({ message: "Requirements extraction route skeleton" });
-});
+// POST /api/requirements (Extract from doc/text using Gemini LLM)
+requirementsRouter.post("/", extractRequirements);
+
+// POST /api/requirements/learn (Learn rule from client rejection email)
+requirementsRouter.post("/learn", handleLearnFromEmail);
 
 // PATCH /api/requirements/:id
 requirementsRouter.patch("/:id", async (req: Request, res: Response) => {
@@ -38,11 +43,6 @@ requirementsRouter.patch("/:id", async (req: Request, res: Response) => {
     console.error("[requirementsRouter] PATCH error:", err);
     return res.status(500).json({ error: { code: "INTERNAL", message: err.message } });
   }
-});
-
-// POST /api/requirements/learn
-requirementsRouter.post("/learn", async (_req: Request, res: Response) => {
-  res.json({ message: "Requirements learn from email route skeleton" });
 });
 
 export default requirementsRouter;

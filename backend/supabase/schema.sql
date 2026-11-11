@@ -59,6 +59,7 @@ create table if not exists invoices (
   status text not null default 'draft' check (status in ('draft', 'sent', 'paid')),  -- 'overdue' is derived at read-time
   paypal_invoice_id text unique,
   payer_view_url text,
+  idempotency_key text unique,
   preflight_summary jsonb,           -- {blockers, warnings, passed, issues[]} at send time
   updated_via text check (updated_via in ('app', 'webhook', 'poll')),
   paypal_debug_id text,
@@ -72,6 +73,7 @@ create table if not exists invoices (
 
 create index if not exists idx_invoices_status on invoices (status);
 create index if not exists idx_invoices_client_id on invoices (client_id);
+create index if not exists idx_invoices_idempotency_key on invoices (idempotency_key);
 
 -- 5. Invoice Items Table
 create table if not exists invoice_items (

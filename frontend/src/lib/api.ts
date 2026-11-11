@@ -73,6 +73,15 @@ let db = freshDb();
 
 /** Restores the seed state so the demo can be recorded repeatedly. */
 export async function resetDemoData(): Promise<void> {
+  const backendBase = API_BASE_URL || "http://localhost:8000";
+  try {
+    await fetch(`${backendBase}/api/dev/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.warn("[api] Could not reset backend dev data:", err);
+  }
   db = freshDb();
 }
 
@@ -303,7 +312,7 @@ export async function listInvoices(): Promise<InvoiceRecord[]> {
             (inv.paypal_invoice_id
               ? `https://www.sandbox.paypal.com/invoice/p/#${inv.paypal_invoice_id}`
               : undefined),
-          updatedNote: inv.status === "paid" ? "Paid" : "Sent",
+          updatedNote: inv.status === "paid" ? "Paid" : inv.status === "draft" ? "Draft saved" : "Sent",
         };
       });
       return mapped;

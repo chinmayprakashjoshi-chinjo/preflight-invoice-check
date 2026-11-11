@@ -36,10 +36,11 @@ interface BlockerIssue {
 }
 
 interface AIReview {
-  approved: boolean;
+  approved?: boolean;
   score?: number;
   summary?: string;
   recommendations?: string[];
+  status?: string;
 }
 
 interface SuccessData {
@@ -302,7 +303,7 @@ export function InvoiceForm() {
             </div>
           </div>
 
-          {successData.ai_review && (
+          {successData.ai_review && successData.ai_review.summary && (
             <div className="border-t pt-3">
               <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
                 <Sparkles className="size-3.5" />
@@ -383,7 +384,7 @@ export function InvoiceForm() {
                 ))}
               </div>
 
-              {aiReviewData && aiReviewData.recommendations && (
+              {aiReviewData && Array.isArray(aiReviewData.recommendations) && aiReviewData.recommendations.length > 0 && (
                 <div className="mt-3 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">AI Recommendation:</span>{" "}
                   {aiReviewData.recommendations.join("; ")}

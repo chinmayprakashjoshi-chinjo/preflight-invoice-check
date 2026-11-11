@@ -119,7 +119,7 @@ function InvoicesPage() {
             (inv.paypal_invoice_id
               ? `https://www.sandbox.paypal.com/invoice/p/#${inv.paypal_invoice_id}`
               : undefined),
-          updatedNote: inv.status === "paid" ? "Paid" : "Sent",
+          updatedNote: inv.status === "paid" ? "Paid" : inv.status === "draft" ? "Draft saved" : "Sent",
         };
       });
 

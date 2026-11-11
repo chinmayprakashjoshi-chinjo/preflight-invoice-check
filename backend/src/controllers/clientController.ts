@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
-import { db } from "../../lib/db";
-import type { Client, ClientRequirements, Currency, PaymentTerms } from "../../../shared/types";
+import crypto from "node:crypto";
+import { db } from "../../lib/db.js";
+import { extractAPRequirements } from "../services/aiService.js";
+import type { Client, ClientRequirements, Currency, PaymentTerms } from "../../../shared/types.js";
 
 /**
  * Resolves a client by UUID or case-insensitive name/entity substring.
@@ -335,11 +337,193 @@ export async function updateSingleRule(req: Request, res: Response) {
   }
 }
 
+/**
+ * POST /api/requirements
+ * Ingests text or document, calls Gemini LLM to extract AP rules,
+ * verifies evidence verbatim (NFR-04), updates database preserving user edits (DB-05),
+ * and returns the full Client object matching ClientSchema.
+ */
+export async function extractRequirements(req: Request, res: Response) {
+  try {
+    const { clientId, fileName, text } = req.body;
+    if (!clientId) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "clientId is required." } });
+    }
+
+    const client = await resolveClient(clientId);
+    if (!client) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: `Client '${clientId}' not found.` } });
+    }
+
+    let sourceText = typeof text === "string" ? text.trim() : "";
+
+    // If text was not supplied in request body, retrieve stored document from Supabase
+    if (!sourceText) {
+      const { data: doc } = await db
+        .from("client_documents")
+        .select("*")
+        .eq("client_id", client.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (doc?.source_text) {
+        sourceText = doc.source_text.trim();
+      }
+    }
+
+    // Check if input was empty or bad file
+    if (!sourceText) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "There was no text to read in that input.",
+        },
+      });
+    }
+
+    console.log(`[clientController] Extracting requirements for ${client.name} using Gemini LLM (${sourceText.length} chars)...`);
+
+    // Call Gemini LLM to extract requirements
+    const extractedRules = await extractAPRequirements(sourceText, client.name);
+    console.log(`[clientController] Extracted ${extractedRules.length} rules with verbatim verification.`);
+
+    // Persist document record into client_documents
+    const hash = crypto.createHash("md5").update(sourceText).digest("hex");
+    const docKind = fileName?.endsWith(".pdf") ? "pdf" : "text";
+
+    let savedDocId: string | null = null;
+    try {
+      const { data: savedDoc, error: docErr } = await db
+        .from("client_documents")
+        .insert({
+          client_id: client.id,
+          kind: docKind,
+          storage_path: fileName || null,
+          source_text: sourceText,
+          source_text_hash: hash,
+        })
+        .select("id")
+        .single();
+
+      if (!docErr && savedDoc) {
+        savedDocId = savedDoc.id;
+      }
+    } catch (e: any) {
+      console.warn("[clientController] Warning saving client_document:", e.message || e);
+    }
+
+    // Query existing rules to preserve any user-edited rules (source === 'user') per DB-05
+    const { data: existingRows } = await db
+      .from("requirements")
+      .select("key, source")
+      .eq("client_id", client.id);
+
+    const userEditedKeys = new Set(
+      (existingRows || []).filter((r) => r.source === "user").map((r) => r.key)
+    );
+
+    // Delete existing AI-extracted requirements for this client per DB-05
+    await db
+      .from("requirements")
+      .delete()
+      .eq("client_id", client.id)
+      .eq("source", "ai");
+
+    // Insert new extracted rules (skipping any key the user has customized)
+    const rulesToInsert = extractedRules
+      .filter((r) => !userEditedKeys.has(r.key))
+      .map((rule) => ({
+        client_id: client.id,
+        document_id: savedDocId,
+        key: rule.key,
+        label: rule.label,
+        value: rule.value,
+        evidence: rule.evidence,
+        evidence_verified: rule.evidenceVerified ?? true,
+        confidence: rule.confidence,
+        source: "ai",
+        is_new: false,
+      }));
+
+    if (rulesToInsert.length > 0) {
+      const { error: insertErr } = await db.from("requirements").insert(rulesToInsert);
+      if (insertErr) {
+        console.error("[clientController] Error inserting extracted requirements:", insertErr);
+      }
+    }
+
+    // Build fresh client representation matching ClientSchema
+    const fullClient = await buildClientResponse(client);
+    if (fileName) {
+      fullClient.sourceDoc.fileName = fileName;
+    }
+
+    return res.json(fullClient);
+  } catch (err: any) {
+    console.error("[clientController] extractRequirements error:", err);
+    const statusCode = err.statusCode || (err.code === "EXTRACTION_FAILED" ? 502 : 500);
+    return res.status(statusCode).json({
+      error: {
+        code: err.code || "EXTRACTION_FAILED",
+        message: err.message || "Failed to extract requirements from document.",
+        details: {},
+      },
+    });
+  }
+}
+
+/**
+ * POST /api/requirements/learn
+ * Extracts rule from a client rejection email and badges it with is_new = true.
+ */
+export async function handleLearnFromEmail(req: Request, res: Response) {
+  try {
+    const { clientId, text } = req.body;
+    if (!clientId || !text) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "clientId and text are required." } });
+    }
+
+    const client = await resolveClient(clientId);
+    if (!client) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: `Client '${clientId}' not found.` } });
+    }
+
+    console.log(`[clientController] Learning from rejection email for ${client.name}...`);
+    const extractedRules = await extractAPRequirements(text, client.name);
+
+    if (extractedRules.length > 0) {
+      const topRule = extractedRules[0];
+      await db.from("requirements").insert({
+        client_id: client.id,
+        key: topRule.key,
+        label: topRule.label,
+        value: topRule.value,
+        evidence: topRule.evidence,
+        evidence_verified: topRule.evidenceVerified ?? true,
+        confidence: topRule.confidence,
+        source: "email",
+        is_new: true,
+      });
+    }
+
+    const fullClient = await buildClientResponse(client);
+    return res.json(fullClient);
+  } catch (err: any) {
+    console.error("[clientController] handleLearnFromEmail error:", err);
+    return res.status(500).json({
+      error: { code: "INTERNAL", message: err.message || "Failed to learn from email" },
+    });
+  }
+}
+
 export default {
   listClients,
   getClientById,
   updateClientRequirements,
   updateSingleRule,
+  extractRequirements,
+  handleLearnFromEmail,
   resolveClient,
   buildClientResponse,
 };

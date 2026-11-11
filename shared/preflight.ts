@@ -1,4 +1,4 @@
-import type { ClientRequirements, DraftInvoice, Issue } from "./types";
+import type { ClientRequirements, DraftInvoice, Issue } from "./types.js";
 
 /**
  * Pure pre-flight rules. Given a draft invoice and the client's AP requirements,

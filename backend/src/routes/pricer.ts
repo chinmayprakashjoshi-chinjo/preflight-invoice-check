@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { calcPricing } from "../../../shared/pricer";
-import type { PricingInput } from "../../../shared/types";
+import { calcPricing } from "../../../shared/pricer.js";
+import type { PricingInput } from "../../../shared/types.js";
 
 export const pricerRouter = Router();
 

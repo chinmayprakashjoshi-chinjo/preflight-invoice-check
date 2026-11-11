@@ -120,10 +120,7 @@ export async function createDraftInvoice(input: CreateInvoiceInput): Promise<str
     primary_recipients: [
       {
         billing_info: {
-          name: {
-            given_name: input.recipientName || "Valued",
-            surname: input.recipientName ? "Client" : "Customer",
-          },
+          business_name: input.recipientName || "Valued Customer",
           email_address: input.recipientEmail,
         },
       },
@@ -152,6 +149,32 @@ export async function createDraftInvoice(input: CreateInvoiceInput): Promise<str
   if (!response.ok) {
     const errorBody = await response.text();
     const debugId = response.headers.get("paypal-debug-id");
+
+    // Auto-retry if invoice number is duplicate in PayPal Sandbox
+    if (errorBody.includes("DUPLICATE_INVOICE_NUMBER")) {
+      const fallbackNum = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+      console.warn(`[paypalService] Duplicate invoice number detected, retrying with ${fallbackNum}...`);
+      payload.detail = { ...(payload.detail as object), invoice_number: fallbackNum };
+      const retryRes = await fetch(`${PAYPAL_API_BASE}/v2/invoicing/invoices`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (retryRes.ok) {
+        const retryResult = (await retryRes.json()) as {
+          id?: string;
+          href?: string;
+          links?: Array<{ href: string; rel: string }>;
+        };
+        const parsedId = retryResult.id || retryResult.href?.split("/").pop();
+        if (parsedId) return parsedId;
+      }
+    }
+
     const error = new Error(`PayPal create invoice failed (${response.status}): ${errorBody} [debug_id: ${debugId}]`);
     (error as unknown as { debugId?: string; statusCode?: number }).debugId = debugId || undefined;
     (error as unknown as { debugId?: string; statusCode?: number }).statusCode = 502;
@@ -284,10 +307,127 @@ export async function createAndSendInvoice(input: CreateInvoiceInput): Promise<P
   };
 }
 
+export interface RecordPaymentInput {
+  method?: string;
+  paymentDate?: string;
+  note?: string;
+  amount: {
+    currency: string;
+    value: string | number;
+  };
+}
+
+/**
+ * Records a payment against an invoice in PayPal Sandbox via POST /v2/invoicing/invoices/{id}/payments.
+ */
+export async function recordInvoicePayment(
+  invoiceId: string,
+  input: RecordPaymentInput,
+): Promise<{ paymentId: string }> {
+  const token = await getAccessToken();
+
+  const payload = {
+    method: input.method || "BANK_TRANSFER",
+    payment_date: input.paymentDate || new Date().toISOString().slice(0, 10),
+    note: input.note || "Payment recorded via PreFlight (Sandbox)",
+    amount: {
+      currency_code: input.amount.currency,
+      value: Number(input.amount.value).toFixed(2),
+    },
+  };
+
+  const response = await fetch(`${PAYPAL_API_BASE}/v2/invoicing/invoices/${invoiceId}/payments`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const debugId = response.headers.get("paypal-debug-id");
+    const error = new Error(`PayPal record payment failed (${response.status}): ${errorBody} [debug_id: ${debugId}]`);
+    (error as unknown as { debugId?: string; statusCode?: number }).debugId = debugId || undefined;
+    (error as unknown as { debugId?: string; statusCode?: number }).statusCode = 502;
+    throw error;
+  }
+
+  const result = (await response.json()) as { payment_id: string };
+  return { paymentId: result.payment_id };
+}
+
+/**
+ * Verifies PayPal webhook signature via POST /v1/notifications/verify-webhook-signature.
+ */
+export async function verifyWebhookSignature(
+  headers: Record<string, string | string[] | undefined>,
+  webhookEvent: any,
+): Promise<boolean> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim();
+
+  // If webhook ID is not configured, check if we're in dev/demo mode
+  if (!webhookId) {
+    console.warn("[paypalService] PAYPAL_WEBHOOK_ID is not configured in backend/.env.");
+    return false;
+  }
+
+  const authAlgo = (headers["paypal-auth-algo"] || headers["PAYPAL-AUTH-ALGO"]) as string;
+  const certUrl = (headers["paypal-cert-url"] || headers["PAYPAL-CERT-URL"]) as string;
+  const transmissionId = (headers["paypal-transmission-id"] || headers["PAYPAL-TRANSMISSION-ID"]) as string;
+  const transmissionSig = (headers["paypal-transmission-sig"] || headers["PAYPAL-TRANSMISSION-SIG"]) as string;
+  const transmissionTime = (headers["paypal-transmission-time"] || headers["PAYPAL-TRANSMISSION-TIME"]) as string;
+
+  if (!authAlgo || !certUrl || !transmissionId || !transmissionSig || !transmissionTime) {
+    console.warn("[paypalService] Missing required PayPal webhook signature headers.");
+    return false;
+  }
+
+  try {
+    const token = await getAccessToken();
+
+    const verificationPayload = {
+      auth_algo: authAlgo,
+      cert_url: certUrl,
+      transmission_id: transmissionId,
+      transmission_sig: transmissionSig,
+      transmission_time: transmissionTime,
+      webhook_id: webhookId,
+      webhook_event: webhookEvent,
+    };
+
+    const response = await fetch(`${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(verificationPayload),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`[paypalService] Webhook verification endpoint returned ${response.status}: ${errText}`);
+      return false;
+    }
+
+    const data = (await response.json()) as { verification_status: string };
+    const isValid = data.verification_status === "SUCCESS";
+    console.log(`[paypalService] PayPal webhook verification status: ${data.verification_status}`);
+    return isValid;
+  } catch (err: any) {
+    console.error("[paypalService] Error verifying webhook signature:", err.message || err);
+    return false;
+  }
+}
+
 export default {
   getAccessToken,
   createDraftInvoice,
   sendInvoice,
   getInvoice,
   createAndSendInvoice,
+  recordInvoicePayment,
+  verifyWebhookSignature,
 };

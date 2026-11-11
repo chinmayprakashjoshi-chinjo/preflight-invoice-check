@@ -1,4 +1,4 @@
-import type { Currency, DraftInvoice, PaymentTerms } from "./types";
+import type { Currency, DraftInvoice, PaymentTerms } from "./types.js";
 
 const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
