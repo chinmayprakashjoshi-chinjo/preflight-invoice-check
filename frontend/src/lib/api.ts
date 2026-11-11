@@ -28,9 +28,11 @@ import {
   PricingResultSchema,
   type Client,
   type ClientRequirements,
+  type Currency,
   type DraftInvoice,
   type ExtractInput,
   type InvoiceRecord,
+  type InvoiceStatus,
   type Issue,
   type LearnInput,
   type ParsedDraft,
@@ -39,7 +41,31 @@ import {
   type RequirementKey,
 } from "./types";
 
-export const API_BASE_URL: string = import.meta.env["VITE_API_BASE_URL"] ?? "";
+/**
+ * Resolves the API Base URL.
+ * In production mode (e.g. monolithic deployment where frontend is served by backend),
+ * defaults to '' (relative path) so requests go directly to same-origin /api/...
+ * In development, defaults to 'http://localhost:8000' unless overridden by VITE_API_BASE_URL.
+ */
+export function getApiBaseUrl(): string {
+  const envBase = import.meta.env["VITE_API_BASE_URL"];
+  if (envBase !== undefined && envBase !== "") {
+    return envBase.replace(/\/+$/, "");
+  }
+
+  const isProduction =
+    import.meta.env.PROD ||
+    import.meta.env.MODE === "production" ||
+    (typeof process !== "undefined" && process.env?.NODE_ENV === "production");
+
+  if (isProduction) {
+    return "";
+  }
+
+  return "http://localhost:8000";
+}
+
+export const API_BASE_URL: string = getApiBaseUrl();
 export const USE_MOCKS: boolean = import.meta.env["VITE_USE_MOCKS"] !== "false";
 
 export class ApiError extends Error {}
@@ -64,16 +90,46 @@ async function request<S extends z.ZodTypeAny>(
   return schema.parse(await res.json());
 }
 
-/* ---------- Mock database (this browser session only) ---------- */
+/* ---------- Mock database (persisted per browser session) ---------- */
+
+const DB_STORAGE_KEY = "preflight_demo_db_v1";
 
 function freshDb() {
   return { clients: clone(MOCK_CLIENTS), invoices: seedInvoices(), nextInvoiceNumber: 108 };
 }
-let db = freshDb();
+
+function loadDb(): ReturnType<typeof freshDb> {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = sessionStorage.getItem(DB_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.invoices) && parsed.invoices.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return freshDb();
+}
+
+function saveDb(data: ReturnType<typeof freshDb>): void {
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(DB_STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+let db = loadDb();
 
 /** Restores the seed state so the demo can be recorded repeatedly. */
 export async function resetDemoData(): Promise<void> {
-  const backendBase = API_BASE_URL || "http://localhost:8000";
+  const backendBase = API_BASE_URL;
   try {
     await fetch(`${backendBase}/api/dev/reset`, {
       method: "POST",
@@ -81,6 +137,13 @@ export async function resetDemoData(): Promise<void> {
     });
   } catch (err) {
     console.warn("[api] Could not reset backend dev data:", err);
+  }
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem(DB_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   }
   db = freshDb();
 }
@@ -94,7 +157,7 @@ function withDerivedStatus(inv: InvoiceRecord): InvoiceRecord {
 /* ---------- Clients ---------- */
 
 export async function getClients(): Promise<Client[]> {
-  const backendBase = API_BASE_URL || "http://localhost:8000";
+  const backendBase = API_BASE_URL;
   try {
     const res = await fetch(`${backendBase}/api/clients`);
     if (res.ok) {
@@ -105,11 +168,10 @@ export async function getClients(): Promise<Client[]> {
         return parsed.data;
       }
     }
-  } catch {
-    // fallback to mock data
+  } catch (err) {
+    console.warn("[api] Could not fetch live clients, using local mock data:", err);
   }
 
-  if (!USE_MOCKS) return request("GET", "/api/clients", z.array(ClientSchema));
   await delay(150);
   return clone(db.clients);
 }
@@ -147,7 +209,7 @@ export async function updateRequirements(
   requirements: ClientRequirements,
   ruleKey?: string,
 ): Promise<Client> {
-  const backendBase = API_BASE_URL || "http://localhost:8000";
+  const backendBase = API_BASE_URL;
 
   // 1. ALWAYS dispatch PUT to backend server to update Supabase in real-time
   try {
@@ -258,22 +320,78 @@ export async function learnFromEmail(input: LearnInput): Promise<Client> {
 
 /* ---------- Draft ---------- */
 
-/** Turns a one-line description into draft fields. */
-export async function draftInvoice(text: string): Promise<ParsedDraft> {
-  if (!USE_MOCKS) return request("POST", "/api/draft", ParsedDraftSchema, { text });
-  await delay(600);
-  return parseDraftPrompt(text, db.clients);
+/** Turns a one-line description into draft fields, preserving existing total amount if present. */
+export async function draftInvoice(
+  text: string,
+  existingAmount?: number,
+  existingCurrency?: Currency,
+): Promise<ParsedDraft> {
+  const instructedText =
+    existingAmount && existingAmount > 0
+      ? `${text} (Note: KEEP the existing total amount of ${existingAmount} ${existingCurrency ?? ""}. ONLY generate the description, client name, and other missing details, ignoring any amount mentioned in the user's text prompt.)`
+      : text;
+
+  const backendBase = API_BASE_URL;
+  try {
+    const res = await fetch(`${backendBase}/api/draft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: instructedText,
+        existingAmount: existingAmount && existingAmount > 0 ? existingAmount : undefined,
+        existingCurrency,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const parsed = ParsedDraftSchema.safeParse(data);
+      if (parsed.success) {
+        if (existingAmount && existingAmount > 0) {
+          parsed.data.amount = existingAmount;
+          if (existingCurrency) parsed.data.currency = existingCurrency;
+        }
+        return parsed.data;
+      }
+    }
+  } catch (err) {
+    console.warn("[api] Live draft endpoint failed or offline, falling back to local parser:", err);
+  }
+
+  await delay(300);
+  return parseDraftPrompt(instructedText, db.clients, existingAmount, existingCurrency);
 }
 
 /* ---------- Pre-flight ---------- */
 
-/** Runs the pre-flight rules for the client. Mock uses the local pure function. */
+/** Runs the pre-flight rules for the client. Fast-fails to pure client rules to prevent hanging. */
 export async function runPreflight(invoice: DraftInvoice, clientId: string): Promise<Issue[]> {
-  if (!USE_MOCKS)
-    return request("POST", "/api/preflight", z.array(IssueSchema), { invoice, clientId });
-  const requirements = db.clients.find((c) => c.id === clientId)?.requirements;
-  if (!requirements) throw new ApiError("This client has no AP requirements yet.");
-  return preflight(invoice, requirements);
+  const requirements =
+    db.clients.find((c) => c.id === clientId)?.requirements ??
+    getExtractedRequirements(clientId) ??
+    MOCK_CLIENTS.find((c) => c.id === clientId)?.requirements;
+
+  const localIssues = requirements ? preflight(invoice, requirements) : [];
+
+  const backendBase = API_BASE_URL;
+  try {
+    const res = await fetch(`${backendBase}/api/preflight`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(2000),
+      body: JSON.stringify({ invoice, clientId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const rawIssues = Array.isArray(data) ? data : data.issues;
+      if (Array.isArray(rawIssues) && rawIssues.length > 0) {
+        return rawIssues;
+      }
+    }
+  } catch (err) {
+    console.warn("[api] Live preflight failed or timed out, using local AP rules:", err);
+  }
+
+  return localIssues;
 }
 
 /* ---------- Pricer ---------- */
@@ -285,44 +403,68 @@ export async function calcPricing(input: PricingInput): Promise<PricingResult> {
 
 /* ---------- Invoices ---------- */
 
+export function recordCreatedInvoice(record: InvoiceRecord): void {
+  const existingIdx = db.invoices.findIndex(
+    (i) => i.id === record.id || (i.number && i.number === record.number),
+  );
+  if (existingIdx >= 0) {
+    db.invoices[existingIdx] = record;
+  } else {
+    db.invoices.unshift(record);
+  }
+  saveDb(db);
+}
+
 export async function listInvoices(): Promise<InvoiceRecord[]> {
-  const backendBase = API_BASE_URL || "http://localhost:8000";
+  const backendBase = API_BASE_URL;
   try {
     const res = await fetch(`${backendBase}/api/invoices`);
     if (res.ok) {
       const data = await res.json();
-      const rawInvoices: any[] = Array.isArray(data) ? data : data.invoices || [];
+      const rawInvoices: Array<Record<string, unknown>> = Array.isArray(data)
+        ? data
+        : data.invoices || [];
       const today = todayIso();
       const mapped: InvoiceRecord[] = rawInvoices.map((inv) => {
         const isOverdue = inv.status === "sent" && (inv.dueDate || inv.due_date) < today;
         return {
-          id: inv.id,
-          number: inv.invoice_number || inv.number || "INV-UNKNOWN",
-          clientName: inv.bill_to || inv.clientName || "Valued Client",
+          id: String(inv.id || inv.invoice_number || inv.number),
+          number: (inv.invoice_number || inv.number || "INV-UNKNOWN") as string,
+          clientName: (inv.bill_to || inv.clientName || "Valued Client") as string,
           amount: Number(inv.total ?? inv.amount ?? 0),
           currency: (inv.currency || "USD") as Currency,
           status: (isOverdue ? "overdue" : inv.status || "sent") as InvoiceStatus,
-          issueDate: inv.invoice_date || inv.issueDate || today,
-          dueDate: inv.due_date || inv.dueDate || today,
-          preflight: inv.preflight_summary || inv.preflight || { blockers: 0, warnings: 0 },
-          paypalInvoiceId: inv.paypal_invoice_id || inv.paypalInvoiceId,
-          payerLink:
-            inv.payer_view_url ||
+          issueDate: (inv.invoice_date || inv.issueDate || today) as string,
+          dueDate: (inv.due_date || inv.dueDate || today) as string,
+          preflight: (inv.preflight_summary || inv.preflight || { blockers: 0, warnings: 0 }) as {
+            blockers: number;
+            warnings: number;
+          },
+          paypalInvoiceId: (inv.paypal_invoice_id || inv.paypalInvoiceId) as string | undefined,
+          payerLink: (inv.payer_view_url ||
             inv.payerLink ||
             (inv.paypal_invoice_id
               ? `https://www.sandbox.paypal.com/invoice/p/#${inv.paypal_invoice_id}`
-              : undefined),
-          updatedNote: inv.status === "paid" ? "Paid" : inv.status === "draft" ? "Draft saved" : "Sent",
+              : undefined)) as string | undefined,
+          updatedNote:
+            inv.status === "paid" ? "Paid" : inv.status === "draft" ? "Draft saved" : "Sent",
         };
       });
+
+      // Merge backend invoices with locally created session invoices so nothing is lost
+      for (const localInv of db.invoices) {
+        if (!mapped.some((m) => m.number === localInv.number || m.id === localInv.id)) {
+          mapped.unshift(localInv);
+        }
+      }
+
       return mapped;
     }
   } catch (err) {
     console.warn("[api] Could not fetch live invoices from backend:", err);
   }
 
-  if (!USE_MOCKS) return request("GET", "/api/invoices", z.array(InvoiceRecordSchema));
-  await delay(400);
+  await delay(150);
   return clone(db.invoices).map(withDerivedStatus);
 }
 
@@ -333,8 +475,27 @@ function randomBlock(): string {
 
 /** Sends the invoice through PayPal (sandbox). Mock: records it as Sent with a fake PayPal ID. */
 export async function sendInvoice(invoice: DraftInvoice, issues: Issue[]): Promise<InvoiceRecord> {
-  if (!USE_MOCKS) return request("POST", "/api/send", InvoiceRecordSchema, { invoice, issues });
-  await delay(1200);
+  const backendBase = API_BASE_URL;
+  try {
+    const res = await fetch(`${backendBase}/api/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoice, issues }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const record = (data.data || data) as InvoiceRecord;
+      if (record && record.number) {
+        db.invoices.unshift(record);
+        saveDb(db);
+        return record;
+      }
+    }
+  } catch (err) {
+    console.warn("[api] Live send invoice failed or offline, recording in sandbox:", err);
+  }
+
+  await delay(800);
   const { blockers, warnings } = summarize(issues);
   if (blockers > 0) throw new ApiError("Resolve all blockers before sending.");
   const paypalInvoiceId = `INV2-${randomBlock()}-${randomBlock()}-${randomBlock()}-${randomBlock()}`;
@@ -353,12 +514,13 @@ export async function sendInvoice(invoice: DraftInvoice, issues: Issue[]): Promi
     updatedNote: "Sent",
   };
   db.invoices.unshift(record);
+  saveDb(db);
   return clone(record);
 }
 
 /** Simulates the PayPal INVOICING.INVOICE.PAID webhook or updates DB. */
 export async function markPaid(invoiceId: string): Promise<InvoiceRecord> {
-  const backendBase = API_BASE_URL || "http://localhost:8000";
+  const backendBase = API_BASE_URL;
   try {
     const res = await fetch(`${backendBase}/api/invoices/${invoiceId}/mark-paid`, {
       method: "POST",
@@ -369,7 +531,7 @@ export async function markPaid(invoiceId: string): Promise<InvoiceRecord> {
       const raw = data.invoice || data;
       const today = todayIso();
       const isOverdue = raw.status === "sent" && (raw.due_date || raw.dueDate) < today;
-      return {
+      const updated: InvoiceRecord = {
         id: raw.id,
         number: raw.invoice_number || raw.number || "INV-UNKNOWN",
         clientName: raw.bill_to || raw.clientName || "Valued Client",
@@ -383,19 +545,22 @@ export async function markPaid(invoiceId: string): Promise<InvoiceRecord> {
         payerLink: raw.payer_view_url || raw.payerLink,
         updatedNote: "Paid via sandbox",
       };
+      const idx = db.invoices.findIndex((i) => i.id === invoiceId);
+      if (idx !== -1) db.invoices[idx] = updated;
+      saveDb(db);
+      return updated;
     }
   } catch (err) {
     console.warn("[api] Could not mark invoice paid on backend:", err);
   }
 
-  if (!USE_MOCKS)
-    return request("POST", `/api/invoices/${invoiceId}/mark-paid`, InvoiceRecordSchema);
-  await delay(700);
+  await delay(500);
   const inv = db.invoices.find((i) => i.id === invoiceId);
   if (!inv) throw new ApiError("Invoice not found.");
-  if (inv.status !== "sent")
+  if (inv.status !== "sent" && inv.status !== "overdue")
     throw new ApiError("Only sent or overdue invoices can be marked paid.");
   inv.status = "paid";
   inv.updatedNote = "Paid via webhook, just now";
+  saveDb(db);
   return clone(inv);
 }

@@ -82,12 +82,15 @@ function ClientsPage() {
   const selected = clients.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col flex-1">
       <PageHeader
         title="Clients"
         subtitle="PreFlight reads each client's AP or vendor guide and turns it into checks your invoices must pass."
         actions={
-          <Button asChild>
+          <Button
+            asChild
+            className="bg-white text-slate-900 hover:bg-slate-100 shadow-sm font-semibold"
+          >
             <Link to="/app/new-invoice">
               <FilePlus2 aria-hidden="true" />
               New invoice
@@ -96,92 +99,105 @@ function ClientsPage() {
         }
       />
 
-      {q.isError ? (
-        <EmptyState
-          tone="error"
-          icon={AlertCircle}
-          title="Could not load clients"
-          description="Check your connection and try again."
-          action={
-            <Button variant="outline" onClick={() => q.refetch()}>
-              Try again
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 items-start gap-6 wide:grid-cols-[280px_minmax(0,1fr)]">
-          <nav aria-label="Clients" className="rounded-xl border bg-surface p-2">
-            {q.isPending ? (
-              <div className="space-y-2 p-2">
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : clients.length === 0 ? (
-              <EmptyState icon={Users} title="No clients yet" className="border-0" />
-            ) : (
-              <ul className="space-y-1">
-                {clients.map((c) => {
-                  const active = c.id === selectedId;
-                  return (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        onClick={() => navigate({ to: ".", search: { client: c.id } })}
-                        aria-current={active ? "true" : undefined}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors",
-                          active ? "bg-primary-tint" : "hover:bg-muted",
-                        )}
-                      >
-                        <span
+      <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-6 desk:px-8 desk:py-8 space-y-6 flex-1">
+        {q.isError ? (
+          <EmptyState
+            tone="error"
+            icon={AlertCircle}
+            title="Could not load clients"
+            description="Check your connection and try again."
+            action={
+              <Button variant="outline" onClick={() => q.refetch()}>
+                Try again
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-6 wide:grid-cols-[280px_minmax(0,1fr)]">
+            <nav
+              aria-label="Clients"
+              className="rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-xs"
+            >
+              {q.isPending ? (
+                <div className="space-y-2 p-2">
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                  ))}
+                </div>
+              ) : clients.length === 0 ? (
+                <EmptyState icon={Users} title="No clients yet" className="border-0" />
+              ) : (
+                <ul className="space-y-1.5">
+                  {clients.map((c) => {
+                    const active = c.id === selectedId;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => navigate({ to: ".", search: { client: c.id } })}
+                          aria-current={active ? "true" : undefined}
                           className={cn(
-                            "flex size-9 shrink-0 items-center justify-center rounded-md text-sm font-semibold",
+                            "flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-all duration-150 cursor-pointer",
                             active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-neutral-strong",
+                              ? "bg-indigo-50/90 border border-indigo-200/60 shadow-2xs"
+                              : "hover:bg-slate-50 text-slate-700",
                           )}
-                          aria-hidden="true"
                         >
-                          {c.name.charAt(0)}
-                        </span>
-                        <span className="min-w-0 flex-1">
                           <span
                             className={cn(
-                              "block truncate text-sm font-medium",
-                              active ? "text-primary" : "text-foreground",
+                              "flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-colors",
+                              active
+                                ? "bg-indigo-600 text-white shadow-2xs"
+                                : "bg-slate-100 text-slate-600",
                             )}
+                            aria-hidden="true"
                           >
-                            {c.name}
+                            {c.name.charAt(0)}
                           </span>
-                          <DocStatusLabel client={c} />
-                        </span>
-                        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </nav>
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className={cn(
+                                "block truncate text-sm font-semibold",
+                                active ? "text-indigo-950" : "text-slate-800",
+                              )}
+                            >
+                              {c.name}
+                            </span>
+                            <DocStatusLabel client={c} />
+                          </span>
+                          <ChevronRight
+                            className={cn(
+                              "size-4 transition-colors",
+                              active ? "text-indigo-600" : "text-slate-400",
+                            )}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </nav>
 
-          {q.isPending ? (
-            <div className="space-y-4 rounded-xl border bg-surface p-6">
-              <Skeleton className="h-7 w-56" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-64 w-full" />
-            </div>
-          ) : selected ? (
-            <ClientDetail key={selected.id} client={selected} />
-          ) : (
-            <EmptyState
-              icon={Users}
-              title="Choose a client"
-              description="Pick a client on the left to see their AP requirements."
-            />
-          )}
-        </div>
-      )}
+            {q.isPending ? (
+              <div className="space-y-4 rounded-xl border bg-surface p-6">
+                <Skeleton className="h-7 w-56" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </div>
+            ) : selected ? (
+              <ClientDetail key={selected.id} client={selected} />
+            ) : (
+              <EmptyState
+                icon={Users}
+                title="Choose a client"
+                description="Pick a client on the left to see their AP requirements."
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -222,7 +238,7 @@ function ClientDetail({ client }: { client: Client }) {
       }
       const sourceLabel = variables?.text?.trim()
         ? "pasted text"
-        : (variables?.fileName || updated.sourceDoc?.fileName || "uploaded document");
+        : variables?.fileName || updated.sourceDoc?.fileName || "uploaded document";
       toast.success("Requirements extracted", {
         description: `${pluralize(Object.keys(updated.requirements?.meta ?? {}).length, "requirement")} found in ${sourceLabel}.`,
       });
@@ -231,7 +247,8 @@ function ClientDetail({ client }: { client: Client }) {
   });
 
   const save = useMutation({
-    mutationFn: (req: ClientRequirements) => updateRequirements(client.id, req, editing ?? undefined),
+    mutationFn: (req: ClientRequirements) =>
+      updateRequirements(client.id, req, editing ?? undefined),
     onSuccess: (updated) => {
       replaceClient(updated);
       queryClient.invalidateQueries({ queryKey: clientsQuery.queryKey });
@@ -244,26 +261,29 @@ function ClientDetail({ client }: { client: Client }) {
   const rows = client.requirements ? requirementRows(client.requirements) : [];
 
   return (
-    <section aria-labelledby="client-title" className="rounded-xl border bg-surface">
-      <div className="flex flex-col gap-4 border-b px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+    <section
+      aria-labelledby="client-title"
+      className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden"
+    >
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="client-title" className="text-lg font-semibold text-foreground">
+          <h2 id="client-title" className="text-xl font-bold tracking-tight text-slate-900">
             {client.name}
           </h2>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Building2 className="size-3.5" aria-hidden="true" />
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Building2 className="size-3.5 text-slate-400" aria-hidden="true" />
               {client.industry}
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Mail className="size-3.5" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Mail className="size-3.5 text-slate-400" aria-hidden="true" />
               {client.contactEmail}
             </span>
           </div>
         </div>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className="shadow-2xs">
           <Link to="/app/new-invoice">
-            <FilePlus2 aria-hidden="true" />
+            <FilePlus2 className="size-4" aria-hidden="true" />
             Invoice this client
           </Link>
         </Button>

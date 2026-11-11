@@ -2,9 +2,45 @@ import { z } from "zod";
 
 /* ---------- Shared enums ---------- */
 
-export const CurrencySchema = z.enum(["USD", "EUR"]);
+export const CurrencySchema = z.enum([
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "AUD",
+  "CAD",
+  "INR",
+  "CNY",
+  "CHF",
+  "SGD",
+  "NZD",
+  "HKD",
+  "SEK",
+  "NOK",
+  "MXN",
+  "BRL",
+  "ZAR",
+]);
 export type Currency = z.infer<typeof CurrencySchema>;
-export const CURRENCIES: Currency[] = ["USD", "EUR"];
+export const CURRENCIES: Currency[] = [
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "AUD",
+  "CAD",
+  "INR",
+  "CNY",
+  "CHF",
+  "SGD",
+  "NZD",
+  "HKD",
+  "SEK",
+  "NOK",
+  "MXN",
+  "BRL",
+  "ZAR",
+];
 
 export const PaymentTermsSchema = z.enum(["Net 15", "Net 30", "Net 45"]);
 export type PaymentTerms = z.infer<typeof PaymentTermsSchema>;

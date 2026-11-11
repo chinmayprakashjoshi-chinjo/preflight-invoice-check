@@ -9,23 +9,23 @@ export const SEVERITY: Record<
   blocker: {
     label: "Blocker",
     icon: OctagonX,
-    badge: "bg-blocker-tint text-blocker-strong",
-    iconBox: "bg-blocker-tint text-blocker",
-    icon_: "text-blocker",
+    badge: "bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs font-semibold",
+    iconBox: "bg-rose-50 text-rose-600 border border-rose-200/60",
+    icon_: "text-rose-600",
   },
   warning: {
     label: "Warning",
     icon: AlertTriangle,
-    badge: "bg-warning-tint text-warning-strong",
-    iconBox: "bg-warning-tint text-warning",
-    icon_: "text-warning",
+    badge: "bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs font-semibold",
+    iconBox: "bg-amber-50 text-amber-600 border border-amber-200/60",
+    icon_: "text-amber-600",
   },
   pass: {
     label: "Passed",
     icon: CheckCircle2,
-    badge: "bg-pass-tint text-pass-strong",
-    iconBox: "bg-pass-tint text-pass",
-    icon_: "text-pass",
+    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs font-semibold",
+    iconBox: "bg-emerald-50 text-emerald-600 border border-emerald-200/60",
+    icon_: "text-emerald-600",
   },
 };
 
@@ -42,7 +42,7 @@ export function SeverityBadge({ severity, label, className }: SeverityBadgeProps
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none",
+        "inline-flex h-6.5 items-center gap-1.5 rounded-full px-3 text-xs font-semibold leading-none tracking-tight transition-colors",
         s.badge,
         className,
       )}

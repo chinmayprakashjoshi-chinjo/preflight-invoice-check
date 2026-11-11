@@ -87,13 +87,16 @@ export function DraftInvoiceForm({
   const dueDate = dueDateFor(draft);
 
   return (
-    <section aria-labelledby="draft-title" className="rounded-xl border bg-surface">
-      <div className="flex items-center justify-between border-b px-5 py-4">
+    <section
+      aria-labelledby="draft-title"
+      className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden"
+    >
+      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-4">
         <div>
-          <h2 id="draft-title" className="text-base font-semibold text-foreground">
+          <h2 id="draft-title" className="text-base font-bold text-slate-900">
             Draft invoice
           </h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-500">
             Every field is editable. Checks update as you type.
           </p>
         </div>

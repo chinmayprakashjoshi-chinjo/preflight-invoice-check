@@ -56,7 +56,9 @@ export function dueDateFor(invoice: Pick<DraftInvoice, "invoiceDate" | "paymentT
 }
 
 export function invoiceTotal(invoice: Pick<DraftInvoice, "lineItems">): number {
-  return round2(invoice.lineItems.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0));
+  return round2(
+    invoice.lineItems.reduce((sum: number, li: { quantity: number; unitPrice: number }) => sum + li.quantity * li.unitPrice, 0),
+  );
 }
 
 export function round2(n: number): number {

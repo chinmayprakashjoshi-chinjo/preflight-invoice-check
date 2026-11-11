@@ -1,4 +1,4 @@
-import type { ClientRequirements, DraftInvoice, Issue } from "./types.js";
+import { CURRENCIES, type ClientRequirements, type Currency, type DraftInvoice, type Issue, type LineItem } from "./types.js";
 
 /**
  * Pure pre-flight rules. Given a draft invoice and the client's AP requirements,
@@ -213,7 +213,7 @@ export function preflight(invoice: DraftInvoice, req: ClientRequirements): Issue
   }
 
   // 7. Line item descriptions
-  const weak = invoice.lineItems.find((li) => isWeakDescription(li.description));
+  const weak = invoice.lineItems.find((li: LineItem) => isWeakDescription(li.description));
   if (weak) {
     const label = weak.description.trim() || "(empty)";
     issues.push({
@@ -253,7 +253,7 @@ export function applyFix(invoice: DraftInvoice, issue: Issue): DraftInvoice {
     case "sendTo":
       return { ...invoice, sendTo: v };
     case "currency":
-      return v === "USD" || v === "EUR" ? { ...invoice, currency: v } : invoice;
+      return CURRENCIES.includes(v as Currency) ? { ...invoice, currency: v as Currency } : invoice;
     case "paymentTerms":
       return v === "Net 15" || v === "Net 30" || v === "Net 45"
         ? { ...invoice, paymentTerms: v }
@@ -261,7 +261,7 @@ export function applyFix(invoice: DraftInvoice, issue: Issue): DraftInvoice {
     case "lineItemDescription":
       return {
         ...invoice,
-        lineItems: invoice.lineItems.map((li) =>
+        lineItems: invoice.lineItems.map((li: LineItem) =>
           li.id === issue.fixTargetId ? { ...li, description: v } : li,
         ),
       };

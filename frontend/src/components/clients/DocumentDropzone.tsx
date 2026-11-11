@@ -45,10 +45,14 @@ export function DocumentDropzone({
   );
 
   return (
-    <Tabs defaultValue="upload" className="space-y-3">
-      <TabsList>
-        <TabsTrigger value="upload">Upload PDF</TabsTrigger>
-        <TabsTrigger value="paste">Paste text</TabsTrigger>
+    <Tabs defaultValue="upload" className="space-y-4">
+      <TabsList className="rounded-xl bg-slate-100 p-1">
+        <TabsTrigger value="upload" className="rounded-lg text-xs font-semibold">
+          Upload PDF
+        </TabsTrigger>
+        <TabsTrigger value="paste" className="rounded-lg text-xs font-semibold">
+          Paste text
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="upload" className="mt-0 space-y-3">
@@ -60,16 +64,16 @@ export function DocumentDropzone({
           }}
           onDragLeave={() => setActive(false)}
           onDrop={onDrop}
-          className="dropzone flex flex-col items-center gap-3 rounded-xl bg-background px-6 py-7 text-center transition-colors sm:flex-row sm:text-left"
+          className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-6 text-center transition-all hover:border-indigo-500/50 hover:bg-indigo-50/20 sm:flex-row sm:text-left"
         >
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-tint text-primary">
-            <UploadCloud className="size-5" aria-hidden="true" />
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-indigo-200/60 bg-indigo-50 text-indigo-600 shadow-2xs">
+            <UploadCloud className="size-6" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-sm font-semibold text-slate-900">
               Drop the client&rsquo;s AP / vendor guide PDF
             </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">PDF up to 20 MB.</p>
+            <p className="mt-0.5 text-xs text-slate-500">PDF up to 20 MB.</p>
           </div>
           <input
             ref={inputRef}
@@ -93,10 +97,10 @@ export function DocumentDropzone({
           </Button>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="truncate text-sm text-foreground">
+            <FileText className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <span className="truncate text-sm font-medium text-slate-800">
               {fileName ?? "No document yet"}
             </span>
           </div>

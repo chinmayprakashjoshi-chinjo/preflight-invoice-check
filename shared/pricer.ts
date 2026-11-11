@@ -1,12 +1,12 @@
-import { PRICING_CONFIG } from "./pricing-config.js";
+import { getMidRate, PRICING_CONFIG } from "./pricing-config.js";
 import { formatMoney, formatPercent } from "./format.js";
 import type { Currency, PricingInput, PricingResult } from "./types.js";
 
 export interface PricingRates {
   feeRate: number;
-  fixedFee: Record<Currency, number>;
+  fixedFee: Record<string, number>;
   fxSpread: number;
-  midRates: Record<Currency, Record<Currency, number>>;
+  midRates: Record<string, Record<string, number>>;
 }
 
 function ceil2(n: number): number {
@@ -30,14 +30,14 @@ function round2(n: number): number {
  */
 export function calcPricing(
   input: PricingInput,
-  config: PricingRates = PRICING_CONFIG,
+  config: PricingRates = PRICING_CONFIG as unknown as PricingRates,
 ): PricingResult {
   const { targetNet, currency, clientCurrency } = input;
   const cross = input.crossCurrency && clientCurrency !== currency;
   const net = Math.max(0, targetNet);
 
   const feeRate = config.feeRate;
-  const fixedFee = config.fixedFee[currency];
+  const fixedFee = config.fixedFee[currency] ?? 0.49;
   const spread = cross ? config.fxSpread : 0;
 
   if (net === 0) {
@@ -58,7 +58,9 @@ export function calcPricing(
   const paypalFee = round2(gross - fxSpreadCost - net);
   const effectiveCostRate = (gross - net) / gross;
 
-  const rate = cross ? config.midRates[currency][clientCurrency] : 1;
+  const rate = cross
+    ? (config.midRates?.[currency]?.[clientCurrency] ?? getMidRate(currency, clientCurrency))
+    : 1;
   const invoiceAmount = cross ? ceil2(gross * rate) : gross;
   const invoiceCurrency = cross ? clientCurrency : currency;
 

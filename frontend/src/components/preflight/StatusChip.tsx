@@ -3,10 +3,26 @@ import type { InvoiceStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<InvoiceStatus, { label: string; icon: LucideIcon; className: string }> = {
-  draft: { label: "Draft", icon: CircleDashed, className: "bg-neutral-tint text-neutral-strong" },
-  sent: { label: "Sent", icon: Send, className: "bg-primary-tint text-primary" },
-  paid: { label: "Paid", icon: CheckCircle2, className: "bg-pass-tint text-pass-strong" },
-  overdue: { label: "Overdue", icon: Clock, className: "bg-warning-tint text-warning-strong" },
+  draft: {
+    label: "Draft",
+    icon: CircleDashed,
+    className: "bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs",
+  },
+  sent: {
+    label: "Sent",
+    icon: Send,
+    className: "bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs",
+  },
+  paid: {
+    label: "Paid",
+    icon: CheckCircle2,
+    className: "bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs",
+  },
+  overdue: {
+    label: "Overdue",
+    icon: Clock,
+    className: "bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs",
+  },
 };
 
 export const STATUS_LABELS: Record<InvoiceStatus, string> = Object.fromEntries(
@@ -19,7 +35,7 @@ export function StatusChip({ status, className }: { status: InvoiceStatus; class
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center whitespace-nowrap gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none",
+        "inline-flex h-6.5 items-center whitespace-nowrap gap-1.5 rounded-full px-3 text-xs font-semibold leading-none tracking-tight transition-colors",
         s.className,
         className,
       )}

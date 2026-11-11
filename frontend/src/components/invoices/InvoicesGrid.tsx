@@ -26,23 +26,23 @@ const preflightTheme = themeQuartz.withParams({
   textColor: "var(--foreground)",
   borderColor: "var(--border)",
   accentColor: "var(--primary)",
-  headerBackgroundColor: "var(--muted)",
-  headerTextColor: "var(--muted-foreground)",
+  headerBackgroundColor: "oklch(0.975 0.005 250)",
+  headerTextColor: "oklch(0.45 0.03 257)",
   headerFontSize: 12,
-  headerFontWeight: 500,
-  rowHoverColor: "var(--background)",
+  headerFontWeight: 600,
+  rowHoverColor: "oklch(0.985 0.005 250)",
   selectedRowBackgroundColor: "var(--primary-tint)",
   oddRowBackgroundColor: "var(--surface)",
-  borderRadius: 8,
-  wrapperBorderRadius: 12,
+  borderRadius: 10,
+  wrapperBorderRadius: 16,
   wrapperBorder: true,
   rowBorder: true,
   columnBorder: false,
   headerColumnBorder: false,
   spacing: 8,
-  cellHorizontalPadding: 16,
-  rowHeight: 56,
-  headerHeight: 44,
+  cellHorizontalPadding: 18,
+  rowHeight: 60,
+  headerHeight: 48,
   browserColorScheme: "light",
 });
 
@@ -69,7 +69,8 @@ function PreflightCell({ data }: Params) {
 function ActionsCell({ data, context }: Params) {
   if (!data) return null;
   const actionable = data.status === "sent" || data.status === "overdue";
-  const payerUrl = (data as any).payer_view_url || data.payerLink;
+  const payerUrl =
+    (data as InvoiceRecord & { payer_view_url?: string }).payer_view_url || data.payerLink;
 
   if (!actionable) {
     return payerUrl ? (

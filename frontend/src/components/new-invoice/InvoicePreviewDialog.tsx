@@ -26,7 +26,10 @@ export function InvoicePreviewDialog({ draft, summary }: InvoicePreviewDialogPro
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button
+          variant="outline"
+          className="rounded-xl border-white/20 bg-white/10 text-white shadow-2xs hover:bg-white/20 hover:text-white"
+        >
           <Eye aria-hidden="true" />
           Preview
         </Button>

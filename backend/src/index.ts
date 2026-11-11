@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
 
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
@@ -14,6 +16,19 @@ if (process.env.PAYPAL_ENV !== "sandbox") {
 }
 
 const { default: app } = await import("./app.js");
+
+// Resolve static frontend build folder relative to backend source (../../frontend/dist)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendDistPath = path.resolve(__dirname, "../../frontend/dist");
+
+// Serve static frontend build folder
+app.use(express.static(frontendDistPath));
+
+// Catch-all route to properly support React Router navigation in monolithic deployment
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
 
 const PORT = Number(process.env.PORT) || 8000;
 const HOST = "0.0.0.0";

@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { ClientOnly, createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
@@ -29,6 +29,7 @@ import { STATUS_LABELS } from "@/components/preflight/StatusChip";
 import { markPaid } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { invoicesQuery } from "@/lib/queries";
+import { seedInvoices } from "@/mocks/invoices";
 import {
   InvoiceStatusSchema,
   type Currency,
@@ -80,61 +81,15 @@ function GridSkeleton() {
 }
 
 function InvoicesPage() {
-  const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const queryClient = useQueryClient();
+  const invoicesQ = useQuery(invoicesQuery);
   const [status, setStatus] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
 
-  const fetchLiveInvoices = async () => {
-    try {
-      setIsLoading(true);
-      setIsError(false);
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-      const res = await fetch(`${apiBase}/api/invoices`);
-      if (!res.ok) {
-        throw new Error(`Failed to load invoices (${res.status})`);
-      }
-      const data = await res.json();
-      const rawInvoices: any[] = Array.isArray(data) ? data : data.invoices || [];
-
-      const today = new Date().toISOString().slice(0, 10);
-      const mapped: InvoiceRecord[] = rawInvoices.map((inv: any) => {
-        const isOverdue = inv.status === "sent" && (inv.due_date || inv.dueDate) < today;
-        return {
-          id: inv.id,
-          number: inv.invoice_number || inv.number || "INV-UNKNOWN",
-          clientName: inv.bill_to || inv.clientName || "Valued Client",
-          amount: Number(inv.total ?? inv.amount ?? 0),
-          currency: (inv.currency || "USD") as Currency,
-          status: (isOverdue ? "overdue" : inv.status || "sent") as InvoiceStatus,
-          issueDate: inv.invoice_date || inv.issueDate || today,
-          dueDate: inv.due_date || inv.dueDate || today,
-          preflight: inv.preflight_summary || inv.preflight || { blockers: 0, warnings: 0 },
-          paypalInvoiceId: inv.paypal_invoice_id || inv.paypalInvoiceId,
-          payerLink:
-            inv.payer_view_url ||
-            inv.payerLink ||
-            (inv.paypal_invoice_id
-              ? `https://www.sandbox.paypal.com/invoice/p/#${inv.paypal_invoice_id}`
-              : undefined),
-          updatedNote: inv.status === "paid" ? "Paid" : inv.status === "draft" ? "Draft saved" : "Sent",
-        };
-      });
-
-      setInvoices(mapped);
-    } catch (err) {
-      console.error("[InvoicesPage] Failed to fetch invoices:", err);
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLiveInvoices();
-  }, []);
+  const invoices = invoicesQ.data && invoicesQ.data.length > 0 ? invoicesQ.data : seedInvoices();
+  const isLoading = invoicesQ.isLoading;
+  const isError = invoicesQ.isError && (!invoicesQ.data || invoicesQ.data.length === 0);
 
   const kpis = useMemo(() => {
     const by = (s: InvoiceStatus) => invoices.filter((i) => i.status === s);
@@ -155,7 +110,10 @@ function InvoicesPage() {
     mutationFn: (inv: InvoiceRecord) => markPaid(inv.id),
     onMutate: (inv) => setPendingId(inv.id),
     onSuccess: (updated) => {
-      setInvoices((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      queryClient.setQueryData<InvoiceRecord[]>(invoicesQuery.queryKey, (prev) =>
+        prev ? prev.map((i) => (i.id === updated.id ? updated : i)) : [updated],
+      );
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("INVOICING.INVOICE.PAID recorded in sandbox", {
         description: `${updated.number} · ${formatMoney(updated.amount, updated.currency)} from ${updated.clientName}`,
       });
@@ -165,12 +123,15 @@ function InvoicesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col flex-1">
       <PageHeader
         title="Invoices"
         subtitle="Everything you have drafted and sent, with each invoice's pre-flight result."
         actions={
-          <Button asChild>
+          <Button
+            asChild
+            className="bg-white text-slate-900 hover:bg-slate-100 shadow-sm font-semibold"
+          >
             <Link to="/app/new-invoice">
               <FilePlus2 aria-hidden="true" />
               New invoice
@@ -179,123 +140,125 @@ function InvoicesPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 wide:grid-cols-4">
-        <KpiCard
-          label="Draft"
-          tone="neutral"
-          icon={CircleDashed}
-          count={kpis.draft.length}
-          amounts={totalsByCurrency(kpis.draft)}
-          loading={isLoading}
-        />
-        <KpiCard
-          label="Sent (unpaid)"
-          tone="primary"
-          icon={Send}
-          count={kpis.sent.length}
-          amounts={totalsByCurrency(kpis.sent)}
-          loading={isLoading}
-        />
-        <KpiCard
-          label="Paid"
-          tone="pass"
-          icon={CheckCircle2}
-          count={kpis.paid.length}
-          amounts={totalsByCurrency(kpis.paid)}
-          loading={isLoading}
-        />
-        <KpiCard
-          label="Overdue"
-          tone="warning"
-          icon={Clock}
-          count={kpis.overdue.length}
-          amounts={totalsByCurrency(kpis.overdue)}
-          loading={isLoading}
-        />
-      </div>
-
-      <section aria-labelledby="invoice-list" className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 id="invoice-list" className="text-base font-semibold text-foreground">
-            All invoices
-          </h2>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <label htmlFor="invoice-search" className="sr-only">
-                Search invoices
-              </label>
-              <Input
-                id="invoice-search"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search client or invoice #"
-                className="pl-9 sm:w-64"
-              />
-            </div>
-            <Select
-              value={status}
-              onValueChange={(v) => setStatus(v === "all" ? "all" : InvoiceStatusSchema.parse(v))}
-            >
-              <SelectTrigger className="sm:w-44" aria-label="Filter by status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {InvoiceStatusSchema.options.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-6 desk:px-8 desk:py-8 space-y-6 flex-1">
+        <div className="grid gap-4 sm:grid-cols-2 wide:grid-cols-4">
+          <KpiCard
+            label="Draft"
+            tone="neutral"
+            icon={CircleDashed}
+            count={kpis.draft.length}
+            amounts={totalsByCurrency(kpis.draft)}
+            loading={isLoading}
+          />
+          <KpiCard
+            label="Sent (unpaid)"
+            tone="primary"
+            icon={Send}
+            count={kpis.sent.length}
+            amounts={totalsByCurrency(kpis.sent)}
+            loading={isLoading}
+          />
+          <KpiCard
+            label="Paid"
+            tone="pass"
+            icon={CheckCircle2}
+            count={kpis.paid.length}
+            amounts={totalsByCurrency(kpis.paid)}
+            loading={isLoading}
+          />
+          <KpiCard
+            label="Overdue"
+            tone="warning"
+            icon={Clock}
+            count={kpis.overdue.length}
+            amounts={totalsByCurrency(kpis.overdue)}
+            loading={isLoading}
+          />
         </div>
 
-        {isError ? (
-          <EmptyState
-            tone="error"
-            icon={AlertCircle}
-            title="Could not load invoices"
-            description="Check your connection and try again."
-            action={
-              <Button variant="outline" onClick={fetchLiveInvoices}>
-                Try again
-              </Button>
-            }
-          />
-        ) : isLoading ? (
-          <GridSkeleton />
-        ) : invoices.length === 0 ? (
-          <EmptyState
-            icon={FileStack}
-            title="No invoices yet"
-            description="Invoices you send from PreFlight appear here."
-            action={
-              <Button asChild>
-                <Link to="/app/new-invoice">Create your first invoice</Link>
-              </Button>
-            }
-          />
-        ) : (
-          <ClientOnly fallback={<GridSkeleton />}>
-            <Suspense fallback={<GridSkeleton />}>
-              <InvoicesGrid
-                rows={rows}
-                quickFilter={search}
-                context={{
-                  pendingId,
-                  onMarkPaid: (inv) => paidMutation.mutate(inv),
-                }}
-              />
-            </Suspense>
-          </ClientOnly>
-        )}
-      </section>
+        <section aria-labelledby="invoice-list" className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 id="invoice-list" className="text-base font-semibold text-foreground">
+              All invoices
+            </h2>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <label htmlFor="invoice-search" className="sr-only">
+                  Search invoices
+                </label>
+                <Input
+                  id="invoice-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search client or invoice #"
+                  className="pl-9 sm:w-64"
+                />
+              </div>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v === "all" ? "all" : InvoiceStatusSchema.parse(v))}
+              >
+                <SelectTrigger className="sm:w-44" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {InvoiceStatusSchema.options.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {isError ? (
+            <EmptyState
+              tone="error"
+              icon={AlertCircle}
+              title="Could not load invoices"
+              description="Check your connection and try again."
+              action={
+                <Button variant="outline" onClick={() => invoicesQ.refetch()}>
+                  Try again
+                </Button>
+              }
+            />
+          ) : isLoading ? (
+            <GridSkeleton />
+          ) : invoices.length === 0 ? (
+            <EmptyState
+              icon={FileStack}
+              title="No invoices yet"
+              description="Invoices you send from PreFlight appear here."
+              action={
+                <Button asChild>
+                  <Link to="/app/new-invoice">Create your first invoice</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <ClientOnly fallback={<GridSkeleton />}>
+              <Suspense fallback={<GridSkeleton />}>
+                <InvoicesGrid
+                  rows={rows}
+                  quickFilter={search}
+                  context={{
+                    pendingId,
+                    onMarkPaid: (inv) => paidMutation.mutate(inv),
+                  }}
+                />
+              </Suspense>
+            </ClientOnly>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

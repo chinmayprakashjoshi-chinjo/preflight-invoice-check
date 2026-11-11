@@ -29,25 +29,26 @@ export function SentState({
   }
 
   return (
-    <div className="rounded-xl border border-pass/30 bg-pass-tint p-6 text-center" role="status">
-      <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-surface text-pass">
+    <div
+      className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-6 text-center"
+      role="status"
+    >
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-emerald-200/80 bg-white text-emerald-600 shadow-2xs">
         <CheckCircle2 className="size-6" aria-hidden="true" />
       </span>
-      <h3 className="mt-4 text-base font-semibold text-foreground">
-        Invoice sent in PayPal Sandbox
-      </h3>
-      <div className="mt-2 flex justify-center">
+      <h3 className="mt-4 text-base font-bold text-slate-900">Invoice sent in PayPal Sandbox</h3>
+      <div className="mt-2.5 flex justify-center">
         <StatusChip status="sent" />
       </div>
       <dl className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-3 text-left">
-        <div className="col-span-2 rounded-lg bg-surface p-3">
-          <dt className="text-xs text-muted-foreground">PayPal invoice ID</dt>
-          <dd className="tabular mt-0.5 break-all text-sm font-medium text-foreground">
+        <div className="col-span-2 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+          <dt className="text-xs font-medium text-slate-500">PayPal invoice ID</dt>
+          <dd className="tabular mt-0.5 break-all text-xs font-mono font-semibold text-slate-900">
             {invoice.paypalInvoiceId}
           </dd>
         </div>
-        <div className="rounded-lg bg-surface p-3">
-          <dt className="text-xs text-muted-foreground">Amount</dt>
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+          <dt className="text-xs font-medium text-slate-500">Amount</dt>
           <dd className="mt-0.5">
             <MoneyText
               amount={invoice.amount}
@@ -57,15 +58,15 @@ export function SentState({
             />
           </dd>
         </div>
-        <div className="rounded-lg bg-surface p-3">
-          <dt className="text-xs text-muted-foreground">Due</dt>
-          <dd className="tabular mt-0.5 text-base text-foreground">
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+          <dt className="text-xs font-medium text-slate-500">Due</dt>
+          <dd className="tabular mt-0.5 text-sm font-semibold text-slate-900">
             {formatDate(invoice.dueDate)}
           </dd>
         </div>
-        <div className="col-span-2 rounded-lg bg-surface p-3">
-          <dt className="text-xs text-muted-foreground">Client</dt>
-          <dd className="mt-0.5 text-sm text-foreground">{invoice.clientName}</dd>
+        <div className="col-span-2 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+          <dt className="text-xs font-medium text-slate-500">Client</dt>
+          <dd className="mt-0.5 text-sm font-semibold text-slate-900">{invoice.clientName}</dd>
         </div>
       </dl>
       <div className="mt-6 flex flex-wrap justify-center gap-2">

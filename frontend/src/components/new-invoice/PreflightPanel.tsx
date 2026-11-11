@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/preflight/EmptyState";
 import { IssueCard } from "@/components/preflight/IssueCard";
-import { SeverityBadge } from "@/components/preflight/SeverityBadge";
-import { pluralize } from "@/lib/format";
 import { summarize } from "@/lib/preflight";
 import type { Client, InvoiceRecord, Issue } from "@/lib/types";
 import { SendArea } from "./SendArea";
@@ -34,7 +32,7 @@ export function PreflightPanel(props: PreflightPanelProps) {
   return (
     <section
       aria-labelledby="preflight-title"
-      className="flex flex-col rounded-xl border bg-surface wide:sticky wide:top-8"
+      className="flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden wide:sticky wide:top-8 font-inter font-normal"
     >
       <PanelBody {...props} />
     </section>
@@ -44,38 +42,31 @@ export function PreflightPanel(props: PreflightPanelProps) {
 function PanelHeader({ issues, checking }: { issues?: Issue[]; checking: boolean }) {
   const s = issues ? summarize(issues) : null;
   return (
-    <div className="border-b px-5 py-4">
+    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="size-5 text-primary" aria-hidden="true" />
-          <h2 id="preflight-title" className="text-base font-semibold text-foreground">
+          <ShieldCheck className="size-5 text-indigo-600" aria-hidden="true" />
+          <h2 id="preflight-title" className="text-base font-semibold text-slate-900">
             Pre-flight check
           </h2>
         </div>
         <span
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+          className="inline-flex items-center gap-1.5 text-xs font-normal text-slate-500"
           aria-live="polite"
         >
           {checking ? (
             <>
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              <Loader2 className="size-3.5 animate-spin text-indigo-600" aria-hidden="true" />
               Checking
             </>
           ) : s ? (
             <>
-              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              <CheckCircle2 className="size-3.5 text-emerald-600" aria-hidden="true" />
               Up to date
             </>
           ) : null}
         </span>
       </div>
-      {s && (
-        <div className="mt-3 flex flex-wrap gap-2" role="status" aria-live="polite">
-          <SeverityBadge severity="blocker" label={pluralize(s.blockers, "blocker")} />
-          <SeverityBadge severity="warning" label={pluralize(s.warnings, "warning")} />
-          <SeverityBadge severity="pass" label={`${s.passed} passed`} />
-        </div>
-      )}
     </div>
   );
 }
@@ -223,18 +214,24 @@ function PanelBody({
         )}
 
         {passed.length > 0 && (
-          <div className="rounded-xl border px-4 py-3">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/40 px-4 py-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Passed checks
             </h3>
-            <ul className="mt-2 space-y-1.5">
+            <ul className="mt-2.5 space-y-2">
               {passed.map((p) => (
-                <li key={p.id} className="flex items-start gap-2 text-sm">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-pass" aria-hidden="true" />
-                  <span className="text-foreground">
+                <li
+                  key={p.id}
+                  className="flex items-start gap-2 text-xs font-normal text-slate-600"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 size-3.5 shrink-0 text-emerald-600"
+                    aria-hidden="true"
+                  />
+                  <span>
                     <span className="sr-only">Passed: </span>
-                    {p.title}
-                    <span className="text-muted-foreground"> · {p.message}</span>
+                    <span className="font-normal text-slate-800">{p.title}</span>
+                    <span className="text-slate-400"> · {p.message}</span>
                   </span>
                 </li>
               ))}

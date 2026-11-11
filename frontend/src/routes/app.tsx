@@ -7,12 +7,10 @@ export const Route = createFileRoute("/app")({
 
 function AppLayout() {
   return (
-    <div className="flex min-h-screen w-full flex-col desk:flex-row">
+    <div className="flex min-h-screen w-full flex-col bg-[#F4F6FB] text-slate-900 desk:flex-row font-sans">
       <AppSidebar />
-      <main className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 desk:px-8 desk:py-8">
-          <Outlet />
-        </div>
+      <main className="min-w-0 flex-1 flex flex-col">
+        <Outlet />
       </main>
     </div>
   );

@@ -76,4 +76,24 @@ describe("calcPricing", () => {
     expect(r.fxSpreadCost).toBe(0);
     expect(r.invoiceCurrency).toBe("USD");
   });
+
+  it("supports global currencies like GBP, JPY, CAD, INR seamlessly", () => {
+    const rGbp = calcPricing({
+      targetNet: 1000,
+      currency: "GBP",
+      clientCurrency: "GBP",
+      crossCurrency: false,
+    });
+    expect(rGbp.invoiceAmount).toBeGreaterThan(1000);
+    expect(rGbp.invoiceCurrency).toBe("GBP");
+
+    const rJpy = calcPricing({
+      targetNet: 50000,
+      currency: "JPY",
+      clientCurrency: "USD",
+      crossCurrency: true,
+    });
+    expect(rJpy.invoiceAmount).toBeGreaterThan(0);
+    expect(rJpy.invoiceCurrency).toBe("USD");
+  });
 });

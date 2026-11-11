@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { preflight } from "../../../shared/preflight.js";
-import type { DraftInvoice, ClientRequirements, Issue } from "../../../shared/types.js";
+import type { DraftInvoice, ClientRequirements, Issue, Currency } from "../../../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +17,116 @@ export const AICoPilotReviewSchema = z.object({
 });
 
 export type AICoPilotReview = z.infer<typeof AICoPilotReviewSchema>;
+
+export const ParsedDraftLLMSchema = z.object({
+  clientName: z.string(),
+  description: z.string(),
+  amount: z.number().optional(),
+  currency: z.enum(["USD", "EUR"]).optional(),
+});
+
+export type ParsedDraftLLM = z.infer<typeof ParsedDraftLLMSchema>;
+
+/**
+ * Calls Gemini or OpenAI to parse a user invoice prompt into draft fields.
+ * If an existing amount is provided (e.g. from Pricer), explicitly instructs the LLM
+ * to KEEP the existing total amount and ONLY generate the description, client name, and other missing details.
+ */
+export async function parseDraftWithAI(
+  prompt: string,
+  existingAmount?: number,
+  existingCurrency?: Currency,
+): Promise<{ clientName: string; description: string; amount: number; currency: Currency } | null> {
+  const apiKey = process.env.LLM_API_KEY?.trim();
+  const model = process.env.LLM_MODEL?.trim() || "gemini-3.5-flash";
+
+  if (!apiKey) return null;
+
+  const isOpenAI = apiKey.startsWith("sk-") || model.toLowerCase().includes("gpt");
+
+  const systemPrompt = `You are PreFlight's Accounts Payable (AP) AI Assistant.
+A user will provide a one-line request to draft an invoice (e.g. "Invoice Acme Corp $1,200 for site redesign").
+Extract the client name, description of work, amount, and currency.
+${
+  existingAmount && existingAmount > 0
+    ? `CRITICAL CONSTRAINT: The invoice already has an established total amount of ${existingAmount} ${existingCurrency || ""}. You MUST KEEP this amount exactly as ${existingAmount} and MUST NOT overwrite it with any amount mentioned in the user prompt. ONLY extract or generate the clientName, description, and missing details, ignoring any amount mentioned in the user's text prompt.`
+    : ""
+}
+Return ONLY a valid JSON object matching:
+{"clientName": string, "description": string, "amount": number, "currency": "USD" | "EUR"}`;
+
+  try {
+    let rawContent = "{}";
+    if (isOpenAI) {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model.startsWith("gemini") ? "gpt-4o-mini" : model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.1,
+        }),
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as any;
+      rawContent = json.choices?.[0]?.message?.content || "{}";
+    } else {
+      const geminiModel = model.replace(/^models\//, "");
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(6000),
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${systemPrompt}\n\nUser request: "${prompt}"\n\nReturn JSON only without markdown formatting.`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
+        }),
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as any;
+      rawContent = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    }
+
+    const parsed = JSON.parse(rawContent);
+    const valid = ParsedDraftLLMSchema.safeParse(parsed);
+    if (!valid.success) return null;
+
+    return {
+      clientName: valid.data.clientName || "Acme Corp",
+      description: valid.data.description || "Services rendered",
+      amount:
+        existingAmount && existingAmount > 0
+          ? existingAmount
+          : valid.data.amount && valid.data.amount > 0
+            ? valid.data.amount
+            : 1200,
+      currency:
+        existingCurrency ||
+        (valid.data.currency === "EUR" ? "EUR" : "USD"),
+    };
+  } catch (err) {
+    console.warn("[aiService] AI draft parsing failed, falling back to deterministic parser:", err);
+    return null;
+  }
+}
 
 export interface AICoPilotAssessment {
   approved: boolean;

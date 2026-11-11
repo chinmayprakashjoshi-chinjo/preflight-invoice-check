@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Currency } from "@shared";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,7 @@ export interface LineItemInput {
 export interface CreateInvoiceInput {
   invoiceNumber?: string;
   reference?: string; // PO number (max 120 chars)
-  currency: "USD" | "EUR";
+  currency: Currency | string;
   invoiceDate?: string; // YYYY-MM-DD
   paymentTerms?: string; // e.g. "Net 30", "Net 15", "Net 45"
   note?: string;

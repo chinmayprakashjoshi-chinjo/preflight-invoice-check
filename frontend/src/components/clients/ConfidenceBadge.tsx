@@ -2,10 +2,28 @@ import { CircleCheck, CircleHelp, TriangleAlert, type LucideIcon } from "lucide-
 import type { Confidence } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const MAP: Record<Confidence, { label: string; icon: LucideIcon; className: string }> = {
-  high: { label: "High", icon: CircleCheck, className: "bg-pass-tint text-pass-strong" },
-  medium: { label: "Medium", icon: CircleHelp, className: "bg-info-tint text-info-strong" },
-  low: { label: "Low", icon: TriangleAlert, className: "bg-warning-tint text-warning-strong" },
+const MAP: Record<
+  Confidence,
+  { label: string; icon: LucideIcon; textColor: string; iconColor: string }
+> = {
+  high: {
+    label: "High",
+    icon: CircleCheck,
+    textColor: "text-emerald-600",
+    iconColor: "text-emerald-500",
+  },
+  medium: {
+    label: "Medium",
+    icon: CircleHelp,
+    textColor: "text-blue-600",
+    iconColor: "text-blue-500",
+  },
+  low: {
+    label: "Low",
+    icon: TriangleAlert,
+    textColor: "text-amber-600",
+    iconColor: "text-amber-500",
+  },
 };
 
 export function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
@@ -14,12 +32,12 @@ export function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none",
-        c.className,
+        "inline-flex items-center gap-1.5 text-xs font-normal bg-transparent",
+        c.textColor,
       )}
     >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {c.label}
+      <Icon className={cn("size-3.5 shrink-0", c.iconColor)} aria-hidden="true" />
+      <span>{c.label}</span>
       <span className="sr-only"> confidence</span>
     </span>
   );
