@@ -1,6 +1,9 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { clientsRouter } from "./routes/clients.js";
 import { requirementsRouter } from "./routes/requirements.js";
@@ -13,6 +16,20 @@ import { webhooksRouter } from "./routes/webhooks.js";
 import { devRouter } from "./routes/dev.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Candidate paths for frontend/dist depending on dev vs compiled execution
+const candidateDistPaths = [
+  path.resolve(__dirname, "../../frontend/dist"),
+  path.resolve(__dirname, "../../../../frontend/dist"),
+  path.resolve(process.cwd(), "frontend/dist"),
+  path.resolve(process.cwd(), "../frontend/dist"),
+];
+const frontendDistPath =
+  candidateDistPaths.find((dir) => fs.existsSync(dir)) ??
+  path.resolve(__dirname, "../../frontend/dist");
 
 export const app: Express = express();
 
@@ -69,6 +86,66 @@ app.use("/api/send", sendRouter);
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/dev", devRouter);
+
+// 404 handler for unknown /api/* routes (PRD error format)
+app.all(["/api", "/api/*"], (req: Request, res: Response) => {
+  res.status(404).json({
+    error: {
+      code: "NOT_FOUND",
+      message: `API endpoint not found: ${req.method} ${req.originalUrl || req.path}`,
+      details: {},
+    },
+  });
+});
+
+// Serve frontend static files only if the folder exists (check with fs.existsSync)
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get("*", (_req: Request, res: Response) => {
+    const indexPath = path.join(frontendDistPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath, (err) => {
+        if (err && !res.headersSent) {
+          res.status(404).json({
+            error: {
+              code: "NOT_FOUND",
+              message: "Not found",
+              details: {},
+            },
+          });
+        }
+      });
+    } else {
+      res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Frontend index.html not found",
+          details: {},
+        },
+      });
+    }
+  });
+} else {
+  // If it does not exist, GET / must return JSON service status
+  app.get("/", (_req: Request, res: Response) => {
+    res.json({
+      service: "preflight-backend",
+      status: "ok",
+      health: "/api/health",
+    });
+  });
+}
+
+// Any other unknown non-/api path must return 404 JSON, never a 500 or a crash
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    error: {
+      code: "NOT_FOUND",
+      message: `Cannot ${req.method} ${req.originalUrl || req.path}`,
+      details: {},
+    },
+  });
+});
 
 // Central error handler matching PRD error format
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
