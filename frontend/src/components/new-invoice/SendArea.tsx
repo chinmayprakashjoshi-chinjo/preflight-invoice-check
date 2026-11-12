@@ -32,12 +32,12 @@ export function SendArea({
             type="button"
             variant="locked"
             size="lg"
-            className="w-full h-12 rounded-xl text-base font-semibold"
-            disabled
+            className="w-full h-12 rounded-xl text-base font-semibold opacity-50 cursor-not-allowed"
+            disabled={true}
             aria-describedby="send-hint"
           >
             <Lock aria-hidden="true" className="size-4" />
-            Send via PayPal
+            Resolve {blockers} {blockers === 1 ? "Blocker" : "Blockers"} to Send
           </Button>
           <p id="send-hint" className="mt-2.5 text-center text-sm font-medium text-slate-500">
             Resolve {pluralize(blockers, "blocker")} before sending
@@ -49,12 +49,12 @@ export function SendArea({
             type="button"
             variant="locked"
             size="lg"
-            className="w-full h-12 rounded-xl text-base font-semibold"
-            disabled
+            className="w-full h-12 rounded-xl text-base font-semibold opacity-50 cursor-not-allowed"
+            disabled={true}
             aria-describedby="send-hint"
           >
             <Lock aria-hidden="true" className="size-4" />
-            Send via PayPal
+            Send via PayPal Sandbox
           </Button>
           <p id="send-hint" className="mt-2.5 text-center text-sm font-medium text-amber-600">
             Enter a line item amount before sending
@@ -73,12 +73,12 @@ export function SendArea({
             {sending ? (
               <>
                 <Loader2 className="animate-spin size-4" aria-hidden="true" />
-                Sending via PayPal...
+                Sending via PayPal Sandbox...
               </>
             ) : (
               <>
                 <Send aria-hidden="true" className="size-4" />
-                Send via PayPal
+                Send via PayPal Sandbox
               </>
             )}
           </Button>

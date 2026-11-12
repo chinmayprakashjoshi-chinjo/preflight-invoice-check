@@ -74,14 +74,40 @@ export const Route = createFileRoute("/app/new-invoice")({
 
 function NewInvoicePage() {
   const { addInvoice } = useInvoices();
-  const [viewMode, setViewMode] = useState<"split" | "form">("split");
+  const queryClient = useQueryClient();
   const {
     amount: prefillAmount,
     currency: prefillCurrency,
     targetNet: prefillTargetNet,
     userCurrency: prefillUserCurrency,
   } = Route.useSearch();
-  const queryClient = useQueryClient();
+
+  const [sent, setSent] = useState<InvoiceRecord | null>(null);
+  const [draft, setDraft] = useState<DraftInvoice>(() =>
+    demoDraft({ amount: prefillAmount, currency: prefillCurrency }),
+  );
+
+  // Stable references for sendMutation to read latest draft and issues safely
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const currentIssuesRef = useRef<Issue[] | undefined>(undefined);
+
+  // 1. sendMutation declared at the VERY TOP of NewInvoicePage, strictly before any useEffect, useCallback, or helper functions
+  const sendMutation = useMutation({
+    mutationFn: (overrideIssues?: Issue[]) =>
+      sendInvoice(draftRef.current, overrideIssues ?? currentIssuesRef.current ?? []),
+    onSuccess: (record) => {
+      setSent(record);
+      addInvoice(record);
+      toast.success("Invoice sent in PayPal Sandbox", {
+        description: `${record.number} · ${formatMoney(record.amount, record.currency)} to ${draftRef.current.sendTo || record.clientName}`,
+      });
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Could not send the invoice."),
+  });
+
+  const [viewMode, setViewMode] = useState<"split" | "form">("split");
   const clientsQ = useQuery(clientsQuery);
   const clients = clientsQ.data && clientsQ.data.length > 0 ? clientsQ.data : MOCK_CLIENTS;
 
@@ -99,12 +125,8 @@ function NewInvoicePage() {
     () => prefillCurrency ?? (prefillAmount ? "USD" : null),
   );
 
-  const [draft, setDraft] = useState<DraftInvoice>(() =>
-    demoDraft({ amount: prefillAmount, currency: prefillCurrency }),
-  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
-  const [sent, setSent] = useState<InvoiceRecord | null>(null);
   const [flash, setFlash] = useState<{ field: FixField; lineId?: string | undefined } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -170,6 +192,7 @@ function NewInvoicePage() {
   });
 
   const issues = requirements ? (preflightQ.data ?? localIssues) : undefined;
+  currentIssuesRef.current = issues;
   const checking =
     isChecking ||
     (Boolean(requirements && client?.id) &&
@@ -179,27 +202,15 @@ function NewInvoicePage() {
   const summary = useMemo(() => (issues ? summarize(issues) : null), [issues]);
 
   const total = invoiceTotal(draft);
+  const blockersCount = summary ? summary.blockers : 0;
+  const hasBlockers = blockersCount > 0;
   const canSend = Boolean(
-    summary &&
-      summary.blockers === 0 &&
+    !hasBlockers &&
       total > 0 &&
       !sendMutation.isPending &&
       !isGenerating &&
       !sent,
   );
-
-  const sendMutation = useMutation({
-    mutationFn: () => sendInvoice(draft, issues ?? []),
-    onSuccess: (record) => {
-      setSent(record);
-      addInvoice(record);
-      toast.success("Invoice sent in PayPal Sandbox", {
-        description: `${record.number} · ${formatMoney(record.amount, record.currency)} to ${draft.sendTo || record.clientName}`,
-      });
-    },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Could not send the invoice."),
-  });
 
   async function handleGenerate(text: string) {
     setIsGenerating(true);
@@ -313,68 +324,47 @@ function NewInvoicePage() {
 
       if (issue.fixField === "currency" || issue.id === "currency") {
         const nextCurrency = (issue.fixValue as Currency) || "USD";
-        if (targetNet && targetNet > 0) {
-          // Re-trigger the Pricer calculation utility to compute new gross based on original target net
-          const pricing = calcPricing({
-            targetNet,
-            currency: userCurrency,
-            clientCurrency: nextCurrency,
-            crossCurrency: userCurrency !== nextCurrency,
-          });
-          const newGross = pricing.invoiceAmount;
-
-          setDraft((prev: DraftInvoice) => ({
-            ...prev,
-            currency: nextCurrency,
-            lineItems:
-              prev.lineItems.length > 0
-                ? prev.lineItems.map((li, idx) =>
-                    idx === 0 ? { ...li, unitPrice: newGross } : li,
-                  )
-                : [
-                    newLineItem({
-                      description: "Services rendered",
-                      quantity: 1,
-                      unitPrice: newGross,
-                    }),
-                  ],
-          }));
-          setLockedAmount(newGross);
-          setLockedCurrency(nextCurrency);
-          toast.info(`Switched currency to ${nextCurrency}`, {
-            description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} to guarantee ${formatMoney(targetNet, userCurrency)} net in pocket.`,
-          });
-        } else {
-          // Force-clear line items array and invoice total completely
-          setDraft((prev: DraftInvoice) => ({
-            ...prev,
-            currency: nextCurrency,
-            lineItems: [],
-          }));
-          setLockedAmount(null);
-          setLockedCurrency(null);
-          setTargetNet(null);
-          toast.warning(`Switched currency to ${nextCurrency}`, {
-            description:
-              "Line items and total cleared. Please fetch a fresh calculation from the Net-Landing Pricer or add USD items.",
-          });
-        }
+        // Explicitly clear invoice total and line items array to force a fresh calculation from Pricer
+        setDraft((prev: DraftInvoice) => ({
+          ...prev,
+          currency: nextCurrency,
+          lineItems: [],
+        }));
+        setLockedAmount(null);
+        setLockedCurrency(null);
+        setTargetNet(null);
+        toast.warning(`Switched currency to ${nextCurrency}`, {
+          description:
+            "Line items and total cleared. Please fetch a fresh calculation from the Net-Landing Pricer.",
+        });
       } else if (issue.fixField === "lineItemDescription" || issue.id === "description") {
         // Safely extract string representation of fixValue
         let safeDesc = "";
-        const val = issue.fixValue;
-        if (typeof val === "string") {
-          safeDesc = val;
-        } else if (val && typeof val === "object") {
-          const obj = val as Record<string, unknown>;
-          safeDesc = String(obj.description || obj.text || obj.value || obj.title || "");
-        } else if (val !== undefined && val !== null) {
-          safeDesc = String(val);
-        }
-
-        if (!safeDesc.trim()) {
+        try {
+          const val = issue.fixValue;
+          if (typeof val === "string") {
+            safeDesc = val;
+          } else if (val && typeof val === "object") {
+            if (val instanceof Error) {
+              safeDesc = val.message;
+            } else if (typeof (val as any).then === "function") {
+              safeDesc = "Professional services: scope, deliverables and handover";
+            } else {
+              const obj = val as Record<string, unknown>;
+              safeDesc = String(obj.description || obj.text || obj.value || obj.title || "");
+            }
+          } else if (val !== undefined && val !== null) {
+            safeDesc = String(val);
+          }
+        } catch {
           safeDesc = "Professional services: scope, deliverables and handover";
         }
+
+        if (typeof safeDesc !== "string" || !safeDesc.trim() || safeDesc === "[object Object]") {
+          safeDesc = "Professional services: scope, deliverables and handover";
+        }
+
+        const cleanDescString: string = String(safeDesc);
 
         setDraft((prev: DraftInvoice) => {
           if (!prev || !Array.isArray(prev.lineItems)) return prev;
@@ -394,7 +384,7 @@ function NewInvoicePage() {
               ...prev,
               lineItems: [
                 newLineItem({
-                  description: safeDesc,
+                  description: cleanDescString,
                   quantity: 1,
                   unitPrice: 0,
                 }),
@@ -403,7 +393,9 @@ function NewInvoicePage() {
           }
 
           const updatedItems = prev.lineItems.map((li, idx) =>
-            idx === targetIndex ? { ...li, description: safeDesc } : li,
+            idx === targetIndex
+              ? { ...li, description: cleanDescString }
+              : { ...li, description: typeof li.description === "string" ? li.description : String(li.description ?? "") },
           );
 
           return {
@@ -458,35 +450,35 @@ function NewInvoicePage() {
                   sendMutation.mutate();
                 }
               }}
-              disabled={!canSend || sendMutation.isPending}
+              disabled={hasBlockers || !canSend || sendMutation.isPending}
               className={cn(
                 "rounded-xl font-semibold transition-all duration-200 px-4 py-2 text-sm",
-                canSend
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-500/50 cursor-pointer active:scale-[0.98]"
-                  : "border border-slate-700/80 bg-slate-800/80 text-slate-400 shadow-none cursor-not-allowed",
+                hasBlockers || !canSend || sendMutation.isPending
+                  ? "border border-slate-700/80 bg-slate-800/80 text-slate-400 shadow-none opacity-50 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-500/50 cursor-pointer active:scale-[0.98]",
               )}
               aria-label={
-                summary && summary.blockers > 0
-                  ? `Send via PayPal, locked: resolve ${pluralize(summary.blockers, "blocker")} first`
+                hasBlockers
+                  ? `Resolve ${blockersCount} ${blockersCount === 1 ? "Blocker" : "Blockers"} to Send`
                   : total <= 0
                     ? "Enter a line item amount to send"
-                    : "Send via PayPal"
+                    : "Send via PayPal Sandbox"
               }
             >
               {sendMutation.isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin shrink-0" aria-hidden="true" />
-                  Sending via PayPal...
+                  Sending via PayPal Sandbox...
                 </>
-              ) : canSend ? (
+              ) : hasBlockers ? (
                 <>
-                  <Send className="size-4 shrink-0" aria-hidden="true" />
-                  Send via PayPal
+                  <Lock className="size-4 shrink-0" aria-hidden="true" />
+                  Resolve {blockersCount} {blockersCount === 1 ? "Blocker" : "Blockers"} to Send
                 </>
               ) : (
                 <>
-                  <Lock className="size-4 shrink-0" aria-hidden="true" />
-                  Send via PayPal
+                  <Send className="size-4 shrink-0" aria-hidden="true" />
+                  Send via PayPal Sandbox
                 </>
               )}
             </Button>

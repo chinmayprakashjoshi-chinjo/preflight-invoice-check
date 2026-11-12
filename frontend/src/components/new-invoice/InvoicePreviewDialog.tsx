@@ -21,7 +21,9 @@ interface InvoicePreviewDialogProps {
 
 export function InvoicePreviewDialog({ draft, summary }: InvoicePreviewDialogProps) {
   const total = invoiceTotal(draft);
-  const lines = draft.lineItems.filter((li) => li.description.trim() || li.unitPrice > 0);
+  const lines = draft.lineItems.filter(
+    (li) => (typeof li.description === "string" ? li.description.trim() : String(li.description ?? "").trim()) || li.unitPrice > 0,
+  );
 
   return (
     <Dialog>
@@ -124,7 +126,7 @@ export function InvoicePreviewDialog({ draft, summary }: InvoicePreviewDialogPro
                 lines.map((li) => (
                   <tr key={li.id} className="border-b">
                     <td className="py-3 pr-4 text-foreground">
-                      {li.description || "Untitled item"}
+                      {typeof li.description === "string" ? li.description : String(li.description ?? "") || "Untitled item"}
                     </td>
                     <td className="tabular py-3 text-right text-foreground">{li.quantity}</td>
                     <td className="py-3 text-right">

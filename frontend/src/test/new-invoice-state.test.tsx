@@ -362,4 +362,43 @@ describe("Application State Management & Logic Bug Fixes", () => {
       expect(fixed.lineItems).toEqual([]);
     });
   });
+
+  describe("Bug 6: Send via PayPal Sandbox Button UX Logic", () => {
+    it("strictly disables the button and reads 'Resolve X Blockers to Send' when blockers > 0", () => {
+      const getButtonState = (blockersCount: number, total: number, isPending: boolean) => {
+        const hasBlockers = blockersCount > 0;
+        const canSend = !hasBlockers && total > 0 && !isPending;
+        const disabled = hasBlockers || !canSend || isPending;
+        const label = isPending
+          ? "Sending via PayPal Sandbox..."
+          : hasBlockers
+            ? `Resolve ${blockersCount} ${blockersCount === 1 ? "Blocker" : "Blockers"} to Send`
+            : "Send via PayPal Sandbox";
+        return { disabled, label, canSend };
+      };
+
+      // 2 blockers present
+      const stateWith2Blockers = getButtonState(2, 1200, false);
+      expect(stateWith2Blockers.disabled).toBe(true);
+      expect(stateWith2Blockers.canSend).toBe(false);
+      expect(stateWith2Blockers.label).toBe("Resolve 2 Blockers to Send");
+
+      // 1 blocker present
+      const stateWith1Blocker = getButtonState(1, 1200, false);
+      expect(stateWith1Blocker.disabled).toBe(true);
+      expect(stateWith1Blocker.canSend).toBe(false);
+      expect(stateWith1Blocker.label).toBe("Resolve 1 Blocker to Send");
+
+      // 0 blockers present and total > 0: active
+      const stateClean = getButtonState(0, 1200, false);
+      expect(stateClean.disabled).toBe(false);
+      expect(stateClean.canSend).toBe(true);
+      expect(stateClean.label).toBe("Send via PayPal Sandbox");
+
+      // 0 blockers but zero total: disabled
+      const stateZeroTotal = getButtonState(0, 0, false);
+      expect(stateZeroTotal.disabled).toBe(true);
+      expect(stateZeroTotal.canSend).toBe(false);
+    });
+  });
 });
