@@ -14,21 +14,21 @@ export function SendArea({ blockers, warnings, checking, sending, onSend }: Send
   const blocked = blockers > 0;
 
   return (
-    <div className="border-t border-slate-100 bg-slate-50/80 px-5 py-4 font-inter font-normal">
+    <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-5 font-inter font-normal">
       {blocked ? (
         <>
           <Button
             type="button"
             variant="locked"
             size="lg"
-            className="w-full h-11 rounded-xl font-normal"
+            className="w-full h-12 rounded-xl text-base font-semibold"
             disabled
             aria-describedby="send-hint"
           >
-            <Lock aria-hidden="true" />
+            <Lock aria-hidden="true" className="size-4" />
             Send via PayPal
           </Button>
-          <p id="send-hint" className="mt-2 text-center text-xs font-normal text-slate-500">
+          <p id="send-hint" className="mt-2.5 text-center text-sm font-medium text-slate-500">
             Resolve {pluralize(blockers, "blocker")} before sending
           </p>
         </>
@@ -38,29 +38,29 @@ export function SendArea({ blockers, warnings, checking, sending, onSend }: Send
             type="button"
             variant="pass"
             size="lg"
-            className="w-full h-11 rounded-xl shadow-sm cursor-pointer font-normal"
+            className="w-full h-12 rounded-xl text-base font-semibold shadow-sm hover:shadow-md cursor-pointer transition-all"
             onClick={onSend}
             disabled={sending || checking}
           >
             {sending ? (
               <>
-                <Loader2 className="animate-spin" aria-hidden="true" />
+                <Loader2 className="animate-spin size-4" aria-hidden="true" />
                 Sending via PayPal...
               </>
             ) : (
               <>
-                <Send aria-hidden="true" />
+                <Send aria-hidden="true" className="size-4" />
                 Send via PayPal
               </>
             )}
           </Button>
           {warnings > 0 ? (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs font-normal text-warning-strong">
-              <AlertTriangle className="size-3.5" aria-hidden="true" />
+            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-sm font-medium text-warning-strong">
+              <AlertTriangle className="size-4" aria-hidden="true" />
               {pluralize(warnings, "warning")}, you can still send
             </p>
           ) : (
-            <p className="mt-2 text-center text-xs font-normal text-muted-foreground">
+            <p className="mt-2.5 text-center text-sm font-medium text-muted-foreground">
               Sends through PayPal Sandbox. No real money moves.
             </p>
           )}

@@ -122,127 +122,141 @@ function HeroMockup() {
   return (
     <div className="relative mx-auto w-full max-w-[540px]" aria-hidden="true">
       {/* Subtle ambient lighting behind card */}
-      <div className="absolute -inset-2 rounded-2xl bg-indigo-500/10 blur-xl opacity-60" />
+      <div className="absolute -inset-3 rounded-3xl bg-[#8967D2]/15 blur-2xl opacity-75" />
 
       {/* Main SaaS Interface Card */}
-      <div className="relative rounded-2xl border border-slate-800 bg-[#0c1220] p-5 shadow-2xl text-slate-200 font-sans font-normal sm:p-6">
+      <div className="relative rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-md p-6 sm:p-7 shadow-2xl shadow-[#8967D2]/15 text-slate-200 font-sans">
         {/* Authentic SaaS App Header */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-200">PreFlight Audit</span>
-            <span className="text-slate-600 font-normal">/</span>
-            <span className="text-xs font-medium text-slate-400">INV-2026-0108</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-            <span className="relative flex size-2 items-center justify-center">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60 duration-1000" />
-              <span className="relative size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/brand/preflight-icon.svg"
+              alt="PreFlight"
+              className="size-5.5 rounded-md object-contain shrink-0"
+            />
+            <span className="font-lexend text-sm font-semibold text-white tracking-tight">
+              PreFlight Audit
             </span>
-            <span>3 rules checked</span>
+            <span className="text-slate-600 font-normal">/</span>
+            <span className="font-mono text-xs font-medium text-slate-400">INV-2026-0108</span>
           </div>
         </div>
 
         {/* Invoice Target Context */}
-        <div className="animate-audit-entry mt-4 rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-slate-800/80 hover:border-slate-700 hover:shadow-[0_4px_16px_rgba(15,23,42,0.6)] cursor-default">
+        <div className="animate-audit-entry mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/[0.04] hover:border-white/20 cursor-default">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm sm:text-base font-semibold text-white">Acme Corporation Ltd</p>
-              <p className="mt-1 text-xs font-normal text-slate-300">
+              <p className="font-lexend text-base sm:text-lg font-bold text-white tracking-tight">
+                Acme Corporation Ltd
+              </p>
+              <p className="mt-1 text-xs font-normal text-slate-400">
                 Enterprise Net 30 · PO Required · USD
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-medium text-slate-400">Target net in pocket</p>
-              <p className="mt-0.5 text-base sm:text-lg font-bold text-emerald-400 tabular">
+              <p className="font-lexend text-xs font-medium text-slate-400">Target net in pocket</p>
+              <p className="font-lexend mt-0.5 text-xl sm:text-2xl font-bold text-[#ccff00] tabular tracking-tight">
                 $1,200.00
               </p>
             </div>
           </div>
         </div>
 
-        {/* Live Pre-flight Checks Stack - Authentic, humanized, no capsule colors, no AI stickers */}
-        <div className="mt-3.5 space-y-2.5">
-          {/* Issue row */}
-          <div className="animate-audit-entry delay-100ms rounded-xl border border-slate-800/80 bg-slate-900/40 p-3.5 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-slate-800/80 hover:border-red-500/50 hover:shadow-[0_4px_14px_rgba(239,68,68,0.18)] cursor-default">
+        {/* Live Pre-flight Checks Stack */}
+        <div className="mt-4 space-y-3">
+          {/* Issue row (Error: PO missing) */}
+          <div className="animate-audit-entry delay-100ms rounded-xl border border-white/10 border-l-4 border-l-red-500 bg-red-500/[0.03] p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-red-500/[0.06] hover:border-white/20 hover:shadow-[0_4px_20px_rgba(239,68,68,0.12)] cursor-default">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <X className="size-4.5 shrink-0 text-rose-400 mt-0.5" />
+                <X className="size-5 shrink-0 text-red-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">
+                  <p className="font-lexend text-sm sm:text-base font-semibold text-white tracking-tight">
                     Purchase order number missing
                   </p>
-                  <p className="mt-1 text-xs font-normal text-slate-300 leading-relaxed">
+                  <p className="mt-1.5 text-xs sm:text-sm font-normal text-slate-300 leading-relaxed">
                     Client AP policy requires an approved PO reference on invoices over $1,000.
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-xs font-medium text-rose-400">Action required</span>
+              <span className="shrink-0 rounded-none bg-red-500/10 px-2 py-0.5 font-lexend text-[10px] font-bold uppercase tracking-wider text-red-400">
+                Action required
+              </span>
             </div>
-            <div className="mt-2.5 border-l-2 border-slate-700/80 pl-3 text-xs font-normal text-slate-300 italic">
+            <div className="mt-3 border-l-2 border-white/15 pl-3 text-xs font-normal text-slate-400 italic">
               &ldquo;Must reference approved PO number on file.&rdquo;
             </div>
           </div>
 
-          {/* Advisory row */}
-          <div className="animate-audit-entry delay-200ms rounded-xl border border-slate-800/80 bg-slate-900/40 p-3.5 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-slate-800/80 hover:border-amber-500/50 hover:shadow-[0_4px_14px_rgba(245,158,11,0.18)] cursor-default">
+          {/* Advisory row (Warning: Scope of work description) */}
+          <div className="animate-audit-entry delay-200ms rounded-xl border border-white/10 border-l-4 border-l-[#927D84] bg-[#927D84]/[0.04] p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-[#927D84]/[0.08] hover:border-white/20 hover:shadow-[0_4px_20px_rgba(146,125,132,0.15)] cursor-default">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <AlertOctagon className="size-4.5 shrink-0 text-amber-400 mt-0.5" />
+                <AlertOctagon className="size-5 shrink-0 text-[#bfa8b1] mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">Scope of work description</p>
-                  <p className="mt-1 text-xs font-normal text-slate-300 leading-relaxed">
+                  <p className="font-lexend text-sm sm:text-base font-semibold text-white tracking-tight">
+                    Scope of work description
+                  </p>
+                  <p className="mt-1.5 text-xs sm:text-sm font-normal text-slate-300 leading-relaxed">
                     Provide line-item deliverable breakdown for accounts payable audit trail.
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-xs font-medium text-amber-400">Recommendation</span>
+              <span className="shrink-0 rounded-none bg-white/5 px-2 py-0.5 font-lexend text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                Recommendation
+              </span>
             </div>
           </div>
 
-          {/* Verified row */}
-          <div className="animate-audit-entry delay-300ms rounded-xl border border-slate-800/80 bg-slate-900/40 p-3.5 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-slate-800/80 hover:border-emerald-500/50 hover:shadow-[0_4px_14px_rgba(16,185,129,0.18)] cursor-default">
+          {/* Verified row (Success: Legal entity and VAT ID matched) */}
+          <div className="animate-audit-entry delay-300ms rounded-xl border border-white/10 border-l-4 border-l-[#ccff00] bg-[#ccff00]/[0.03] p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-[#ccff00]/[0.06] hover:border-white/20 hover:shadow-[0_4px_20px_rgba(204,255,0,0.12)] cursor-default">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <Check className="size-4.5 shrink-0 text-emerald-400 mt-0.5" />
+                <Check className="size-5 shrink-0 text-[#ccff00] mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">
+                  <p className="font-lexend text-sm sm:text-base font-semibold text-white tracking-tight">
                     Legal entity and VAT ID matched
                   </p>
-                  <p className="mt-1 text-xs font-normal text-slate-300 leading-relaxed">
+                  <p className="mt-1.5 text-xs sm:text-sm font-normal text-slate-300 leading-relaxed">
                     Matched Acme Corporation Ltd against verified AP registry (US-DE entity).
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-xs font-medium text-emerald-400">Verified</span>
+              <span className="shrink-0 rounded-none bg-[#ccff00]/10 px-2 py-0.5 font-lexend text-[10px] font-bold uppercase tracking-wider text-[#ccff00]">
+                Verified
+              </span>
             </div>
           </div>
         </div>
 
         {/* Pricing Math Box */}
-        <div className="animate-audit-entry delay-400ms mt-3.5 rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-slate-800/80 hover:border-slate-700 hover:shadow-[0_4px_14px_rgba(15,23,42,0.5)] cursor-default">
-          <div className="flex items-center justify-between text-xs sm:text-sm font-normal text-slate-300">
+        <div className="animate-audit-entry delay-400ms mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-5 transition-all duration-300 ease-out hover:border-white/20 cursor-default">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-normal text-slate-400 px-1">
             <span>PayPal Sandbox fee offset</span>
-            <span className="tabular font-medium text-slate-200">+$43.91</span>
+            <span className="font-lexend font-medium text-slate-200 tabular">+$43.91</span>
           </div>
-          <div className="mt-3 flex items-center justify-between border-t border-slate-800/80 pt-3">
+          <div className="mt-3.5 flex items-center justify-between rounded-lg bg-black/40 border border-white/10 p-3 sm:p-3.5">
             <div>
-              <p className="text-sm font-semibold text-white">Invoice amount to dispatch</p>
-              <p className="mt-0.5 text-xs font-normal text-emerald-400">
+              <p className="font-lexend text-sm sm:text-base font-semibold text-white tracking-tight">
+                Invoice amount to dispatch
+              </p>
+              <p className="mt-0.5 text-xs font-normal text-[#ccff00]/90">
                 Guarantees $1,200.00 landed in your bank
               </p>
             </div>
-            <span className="text-base sm:text-lg font-bold text-white tabular">$1,243.91</span>
+            <span className="font-lexend text-lg sm:text-xl font-bold text-white tabular tracking-tight">
+              $1,243.91
+            </span>
           </div>
         </div>
 
-        {/* Clean, authentic SaaS Action Button in Inter Regular */}
+        {/* Neo-brutalist High-Impact Action Button */}
         <div className="animate-audit-entry delay-500ms mt-4">
           <button
             type="button"
-            className="group flex w-full cursor-pointer items-center justify-between rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white shadow-xs transition-all duration-300 ease-out hover:scale-[1.02] hover:bg-indigo-500 hover:brightness-110 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] active:scale-[0.99]"
+            className="group flex w-full cursor-pointer items-center justify-between rounded-xl bg-[#8967D2] px-6 py-4 font-lexend text-sm sm:text-base font-semibold text-white shadow-lg transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_4px_15px_rgba(137,103,210,0.4)] hover:brightness-105 active:translate-y-0"
           >
             <span>Send invoice via PayPal Sandbox</span>
-            <span className="text-xs font-normal text-indigo-100 transition-colors group-hover:text-white">
+            <span className="rounded-md bg-black/25 border border-white/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/95 transition-colors group-hover:bg-black/35 font-lexend">
               Ready on PO fix
             </span>
           </button>
@@ -260,8 +274,8 @@ function Hero() {
         <div className="h-[600px] w-[900px] rounded-full bg-gradient-to-tr from-indigo-600/15 via-purple-600/15 to-pink-600/10 blur-[130px]" />
       </div>
 
-      <div className="mx-auto grid max-w-6xl items-center gap-12 desk:grid-cols-[1.1fr_1fr]">
-        <div>
+      <div className="mx-auto grid max-w-6xl items-start gap-12 desk:grid-cols-[1.1fr_1fr]">
+        <div className="desk:pt-2">
           {/* Eyebrow badge */}
           <div className="inline-flex items-center rounded-full border border-indigo-400/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold text-indigo-300 shadow-inner backdrop-blur-md">
             <span>PayPal AI Hackathon · Live Sandbox Invoicing</span>

@@ -60,6 +60,41 @@ interface SuccessData {
   ai_review?: AIReview;
 }
 
+/**
+ * Normalise any response shape (camelCase `InvoiceRecord` from backend
+ * OR snake_case from an older/direct payload) into the canonical
+ * `SuccessData` the success screen expects.
+ */
+function toSuccessData(raw: Record<string, unknown>, fallbacks: {
+  clientName: string;
+  sendTo: string;
+  currency: string;
+  total: number;
+}): SuccessData {
+  return {
+    id: String(raw.id ?? raw.paypalInvoiceId ?? raw.paypal_invoice_id ?? ""),
+    invoice_number:
+      String(raw.invoice_number ?? raw.number ?? raw.invoiceNumber ?? "—"),
+    paypal_invoice_id:
+      String(raw.paypal_invoice_id ?? raw.paypalInvoiceId ?? "—"),
+    payer_view_url:
+      String(raw.payer_view_url ?? raw.payerLink ?? "#"),
+    status: String(raw.status ?? "sent"),
+    bill_to:
+      String(raw.bill_to ?? raw.clientName ?? fallbacks.clientName ?? "—"),
+    send_to:
+      String(raw.send_to ?? raw.sendTo ?? fallbacks.sendTo ?? ""),
+    currency:
+      String(raw.currency ?? fallbacks.currency ?? "USD"),
+    total:
+      Number.isFinite(Number(raw.total ?? raw.amount))
+        ? Number(raw.total ?? raw.amount)
+        : fallbacks.total,
+    ai_review:
+      (raw.ai_review ?? raw.aiReview ?? raw.preflight_summary) as AIReview | undefined,
+  };
+}
+
 const CLIENT_PRESETS = [
   {
     name: "Acme Corporation Ltd",
@@ -368,30 +403,30 @@ export function InvoiceForm({
       } else if (!res.ok) {
         setGeneralError(data.error?.message || `Request failed with status ${res.status}`);
       } else {
-        // Success 201 Created
-        const rec = (data.data || data) as SuccessData;
+        // Success 201 Created — normalise from whatever shape the backend returns
+        const raw = (data.data || data) as Record<string, unknown>;
+        const rec = toSuccessData(raw, { clientName, sendTo, currency, total: totalAmount });
         setSuccessData(rec);
-        if (rec && (rec.invoice_number || rec.paypal_invoice_id)) {
-          const formattedRecord: InvoiceRecord = {
-            id: String(rec.id || rec.paypal_invoice_id || rec.invoice_number),
-            number: rec.invoice_number,
-            clientName: rec.bill_to || clientName,
-            amount: Number(rec.total || totalAmount),
-            currency: (rec.currency || currency) as Currency,
-            status: "sent",
-            issueDate: new Date().toISOString().slice(0, 10),
-            dueDate: new Date().toISOString().slice(0, 10),
-            preflight: { blockers: 0, warnings: 0 },
-            paypalInvoiceId: rec.paypal_invoice_id,
-            payerLink: rec.payer_view_url,
-            updatedNote: "Sent",
-          };
-          recordCreatedInvoice(formattedRecord);
-          queryClient.setQueryData<InvoiceRecord[]>(["invoices"], (prev) => [
-            formattedRecord,
-            ...(prev ? prev.filter((i) => i.id !== formattedRecord.id) : []),
-          ]);
-        }
+
+        const formattedRecord: InvoiceRecord = {
+          id: String(rec.id || rec.paypal_invoice_id || rec.invoice_number),
+          number: rec.invoice_number,
+          clientName: rec.bill_to || clientName,
+          amount: rec.total,
+          currency: (rec.currency || currency) as Currency,
+          status: "sent",
+          issueDate: new Date().toISOString().slice(0, 10),
+          dueDate: new Date().toISOString().slice(0, 10),
+          preflight: { blockers: 0, warnings: 0 },
+          paypalInvoiceId: rec.paypal_invoice_id,
+          payerLink: rec.payer_view_url,
+          updatedNote: "Sent",
+        };
+        recordCreatedInvoice(formattedRecord);
+        queryClient.setQueryData<InvoiceRecord[]>(["invoices"], (prev) => [
+          formattedRecord,
+          ...(prev ? prev.filter((i) => i.id !== formattedRecord.id) : []),
+        ]);
         queryClient.invalidateQueries({ queryKey: ["invoices"] });
       }
     } catch {
@@ -422,19 +457,14 @@ export function InvoiceForm({
           ...(prev ? prev.filter((i) => i.id !== fallbackRecord.id) : []),
         ]);
         queryClient.invalidateQueries({ queryKey: ["invoices"] });
-        setSuccessData({
-          id: fallbackRecord.id,
-          invoice_number: fallbackRecord.number,
-          paypal_invoice_id: fallbackRecord.paypalInvoiceId ?? "INV2-SANDBOX-DEMO",
-          payer_view_url:
-            fallbackRecord.payerLink ??
-            "https://www.sandbox.paypal.com/invoice/p/#INV2-SANDBOX-DEMO",
-          status: "sent",
-          bill_to: fallbackRecord.clientName,
-          send_to: sendTo,
-          currency: fallbackRecord.currency,
-          total: fallbackRecord.amount,
-        });
+        setSuccessData(
+          toSuccessData(fallbackRecord as unknown as Record<string, unknown>, {
+            clientName,
+            sendTo,
+            currency,
+            total: totalAmount,
+          }),
+        );
       } catch (fallbackErr: unknown) {
         const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
         setGeneralError(msg);
@@ -463,83 +493,111 @@ export function InvoiceForm({
 
   // Render Success Screen if Invoice was Created and Sent
   if (successData) {
+    // Safe values — never show NaN, undefined, or empty brackets
+    const safeTotal = Number.isFinite(successData.total) ? successData.total : 0;
+    const safeCurrency = successData.currency || currency || "USD";
+    const safeBillTo = successData.bill_to || clientName || "—";
+    const safeSendTo = successData.send_to || sendTo || "";
+    const safeInvoiceNumber = successData.invoice_number || "—";
+    const safePaypalId = successData.paypal_invoice_id || "—";
+
     return (
-      <div className="mx-auto max-w-2xl rounded-2xl border border-emerald-200/80 bg-white p-6 shadow-sm desk:p-8">
-        <div className="flex items-center gap-3 text-emerald-700">
-          <div className="flex size-12 items-center justify-center rounded-2xl border border-emerald-200/80 bg-emerald-50 shadow-2xs">
+      <div className="mx-auto max-w-2xl rounded-2xl border border-emerald-200/80 bg-white p-6 shadow-md desk:p-8 font-sans">
+        {/* Success Header */}
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/80 bg-emerald-50 shadow-sm">
             <CheckCircle2 className="size-6 text-emerald-600" />
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900">
-              Cleared & Sent via PayPal Sandbox
+              Cleared &amp; Sent via PayPal Sandbox
             </h2>
-            <p className="text-xs text-slate-500">PreFlight verified & PayPal invoice generated</p>
+            <p className="mt-0.5 text-sm text-slate-500 leading-normal">
+              PreFlight verified &amp; PayPal invoice generated
+            </p>
           </div>
         </div>
 
-        <div className="mt-6 space-y-4 rounded-xl border border-slate-200/80 bg-slate-50/50 p-5">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        {/* Invoice Details Grid */}
+        <div className="mt-6 rounded-xl border border-slate-200/90 bg-slate-50/60 p-6">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Invoice Number */}
             <div>
-              <p className="text-xs font-medium text-slate-500">Invoice Number</p>
-              <p className="font-semibold text-slate-900">{successData.invoice_number}</p>
+              <p className="text-sm text-slate-500 mb-1">Invoice Number</p>
+              <p className="text-base font-semibold text-slate-900">{safeInvoiceNumber}</p>
             </div>
+
+            {/* Status */}
             <div>
-              <p className="text-xs font-medium text-slate-500">Status</p>
-              <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-0.5 text-xs font-semibold text-emerald-700 shadow-2xs">
+              <p className="text-sm text-slate-500 mb-1">Status</p>
+              <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 shadow-2xs">
+                <span className="mr-1.5 size-2 rounded-full bg-emerald-500" />
                 Sent (Sandbox)
               </span>
             </div>
+
+            {/* PayPal Invoice ID */}
             <div>
-              <p className="text-xs font-medium text-slate-500">PayPal Invoice ID</p>
-              <p className="font-mono text-xs font-semibold text-slate-900">
-                {successData.paypal_invoice_id}
+              <p className="text-sm text-slate-500 mb-1">PayPal Invoice ID</p>
+              <p className="font-mono text-base font-semibold text-slate-900 break-all">
+                {safePaypalId}
               </p>
             </div>
+
+            {/* Total Invoiced */}
             <div>
-              <p className="text-xs font-medium text-slate-500">Total Invoiced</p>
-              <p className="font-bold text-slate-900">
+              <p className="text-sm text-slate-500 mb-1">Total Invoiced</p>
+              <p className="text-lg font-bold text-slate-900">
                 {new Intl.NumberFormat("en-US", {
                   style: "currency",
-                  currency: successData.currency,
-                }).format(successData.total)}
+                  currency: safeCurrency,
+                }).format(safeTotal)}
               </p>
             </div>
+
+            {/* Billed To — full width */}
             <div className="col-span-2">
-              <p className="text-xs font-medium text-slate-500">Billed To</p>
-              <p className="text-slate-800">
-                {successData.bill_to}{" "}
-                <span className="text-slate-500">({successData.send_to})</span>
+              <p className="text-sm text-slate-500 mb-1">Billed To</p>
+              <p className="text-base font-semibold text-slate-900">
+                {safeBillTo}
+                {safeSendTo && (
+                  <span className="ml-2 font-normal text-sm text-slate-500">
+                    ({safeSendTo})
+                  </span>
+                )}
               </p>
             </div>
           </div>
 
+          {/* AI Review (optional) */}
           {successData.ai_review && successData.ai_review.summary && (
-            <div className="border-t border-slate-200/60 pt-3">
-              <div className="text-xs font-semibold text-indigo-700">
+            <div className="mt-5 border-t border-slate-200/60 pt-4">
+              <p className="text-sm font-semibold text-indigo-700">
                 AP Co-Pilot Assessment (Score: {successData.ai_review.score ?? 95}/100)
-              </div>
-              <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+              </p>
+              <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
                 {successData.ai_review.summary}
               </p>
             </div>
           )}
         </div>
 
+        {/* Action Buttons */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <a
-            href={successData.payer_view_url}
+            href={successData.payer_view_url || "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+            className="inline-flex w-full sm:w-auto flex-1 items-center justify-center gap-2.5 rounded-lg bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
           >
             <span>Open PayPal Hosted Invoice Link</span>
-            <ExternalLink className="size-4" />
+            <ExternalLink className="size-4 shrink-0" />
           </a>
 
           <button
             type="button"
             onClick={handleResetForm}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
           >
             Create Another
           </button>
@@ -554,30 +612,30 @@ export function InvoiceForm({
       {blockers && blockers.length > 0 && (
         <div
           role="alert"
-          className="rounded-2xl border border-rose-200 bg-rose-50/80 p-5 shadow-xs transition-all"
+          className="rounded-2xl border border-slate-200/90 border-l-4 border-l-red-500 bg-white p-6 shadow-sm transition-all"
         >
-          <div className="flex items-start gap-3">
-            <AlertOctagon className="mt-0.5 size-5 shrink-0 text-rose-600" />
-            <div className="flex-1">
-              <h3 className="font-bold text-rose-900">
+          <div className="flex items-start gap-3.5">
+            <AlertOctagon className="mt-0.5 size-6 shrink-0 text-red-500" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-red-600">
                 Pre-Flight Check: {blockerMessage || `${blockers.length} Blocker(s) Found`}
               </h3>
-              <p className="mt-0.5 text-xs text-rose-700">
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">
                 This invoice cannot be sent until client accounts-payable blockers are resolved.
               </p>
 
-              <div className="mt-3 space-y-2.5">
+              <div className="mt-4 space-y-3">
                 {blockers.map((blocker) => (
                   <div
                     key={blocker.id}
-                    className="flex flex-col gap-2 rounded-xl border border-rose-200/80 bg-white p-3.5 text-sm shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm shadow-2xs sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div>
-                      <p className="font-semibold text-slate-900">{blocker.title}</p>
-                      <p className="text-xs text-slate-600">{blocker.message}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-semibold text-slate-900">{blocker.title}</p>
+                      <p className="mt-0.5 text-sm text-slate-600 leading-normal">{blocker.message}</p>
                       {blocker.evidence && (
-                        <p className="mt-1 text-xs italic text-indigo-700">
-                          "From client AP doc: {blocker.evidence}"
+                        <p className="mt-1.5 text-sm italic text-indigo-600 font-normal">
+                          &ldquo;From client AP doc: {blocker.evidence}&rdquo;
                         </p>
                       )}
                     </div>
@@ -585,7 +643,7 @@ export function InvoiceForm({
                       <button
                         type="button"
                         onClick={() => handleQuickFix(blocker)}
-                        className="inline-flex shrink-0 items-center self-start rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:bg-rose-700 cursor-pointer"
+                        className="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-[0.98] transition-colors cursor-pointer"
                       >
                         <span>{blocker.fixLabel}</span>
                       </button>
@@ -597,7 +655,7 @@ export function InvoiceForm({
               {aiReviewData &&
                 Array.isArray(aiReviewData.recommendations) &&
                 aiReviewData.recommendations.length > 0 && (
-                  <div className="mt-3 text-xs text-slate-600">
+                  <div className="mt-6 border-t border-slate-100 pt-5 text-base leading-relaxed text-slate-700">
                     <span className="font-semibold text-slate-900">AI Recommendation:</span>{" "}
                     {aiReviewData.recommendations.join("; ")}
                   </div>
@@ -609,18 +667,18 @@ export function InvoiceForm({
 
       {/* General Error Banner */}
       {generalError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-base text-rose-700 shadow-xs">
           <p className="font-semibold">Error processing invoice</p>
-          <p className="text-xs">{generalError}</p>
+          <p className="text-sm mt-1">{generalError}</p>
         </div>
       )}
 
       {/* Pricer Info Banner */}
       {prefillAmount !== undefined && prefillAmount > 0 && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-info/25 bg-info-tint px-4 py-3 text-sm">
-          <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
-          <p className="text-foreground">
-            <span className="font-medium text-info-strong">From the Pricer:</span>{" "}
+        <div className="flex items-start gap-3 rounded-xl border border-info/30 bg-info-tint p-4 text-base shadow-xs">
+          <Info className="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
+          <p className="text-foreground leading-relaxed">
+            <span className="font-semibold text-info-strong">From the Pricer:</span>{" "}
             {formatMoney(prefillAmount, (currency as Currency) ?? "USD")} added to the invoice. Use
             the AI generator below to fill client and description details without losing this
             amount.
@@ -639,38 +697,38 @@ export function InvoiceForm({
       <form
         id="direct-invoice-form"
         onSubmit={handleSubmit}
-        className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs desk:p-8"
+        className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md desk:p-8"
       >
-        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-5">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               New Invoice Generation
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-slate-500 mt-1">
               PreFlight checks against client AP rules and dispatches via PayPal Sandbox.
             </p>
           </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 shadow-2xs">
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-sm font-semibold text-slate-700 shadow-2xs">
             <span>PreFlight Active</span>
           </div>
         </div>
 
         {/* Client & Billing Info */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {/* Client Name */}
-          <div className="space-y-1.5 sm:col-span-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <Building2 className="size-3.5 text-slate-400" />
+          <div className="space-y-2 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Building2 className="size-4 text-slate-500" />
               <span>Client Legal Name</span>
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <input
                 type="text"
                 required
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="e.g. Acme Corporation Ltd"
-                className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                className="flex-1 rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3 text-base text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
               />
               <select
                 aria-label="Select pre-configured client"
@@ -682,7 +740,7 @@ export function InvoiceForm({
                       ? clientName
                       : ""
                 }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-2xs transition-all focus:border-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                className="rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3 text-sm font-medium text-slate-700 shadow-2xs transition-all focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
               >
                 <option value="" disabled>
                   Presets
@@ -704,9 +762,9 @@ export function InvoiceForm({
           </div>
 
           {/* Send To Email */}
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <Mail className="size-3.5 text-slate-400" />
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Mail className="size-4 text-slate-500" />
               <span>Send To (AP Email)</span>
             </label>
             <input
@@ -715,20 +773,20 @@ export function InvoiceForm({
               value={sendTo}
               onChange={(e) => setSendTo(e.target.value)}
               placeholder="ap@client.example"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+              className="w-full rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3 text-base text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
             />
           </div>
 
           {/* Currency */}
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <Receipt className="size-3.5 text-slate-400" />
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Receipt className="size-4 text-slate-500" />
               <span>Currency</span>
             </label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 shadow-2xs transition-all focus:border-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+              className="w-full rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3 text-base font-medium text-slate-900 shadow-2xs transition-all focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
             >
               <option value="USD">USD ($ - US Dollar)</option>
               <option value="EUR">EUR (€ - Euro)</option>
@@ -736,19 +794,19 @@ export function InvoiceForm({
           </div>
 
           {/* PO Number */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                <FileCheck2 className="size-3.5 text-slate-400" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <FileCheck2 className="size-4 text-slate-500" />
                 <span>Purchase Order (PO) Number</span>
               </label>
               {poRequired && !poNumber && (
-                <span className="text-[11px] font-semibold text-rose-600">
+                <span className="text-sm font-semibold text-rose-600">
                   Required by AP rules
                 </span>
               )}
               {!poRequired && (
-                <span className="text-[11px] font-medium text-slate-400">Not required</span>
+                <span className="text-sm font-medium text-slate-500">Not required</span>
               )}
             </div>
             <input
@@ -756,21 +814,21 @@ export function InvoiceForm({
               value={poNumber}
               onChange={(e) => setPoNumber(e.target.value)}
               placeholder="e.g. PO-2026-04418"
-              className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:outline-none ${
+              className={`w-full rounded-xl border bg-slate-50/50 px-4 py-3 text-base text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus:outline-none ${
                 poRequired && !poNumber
-                  ? "border-rose-400 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10"
-                  : "border-slate-200 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10"
+                  ? "border-rose-400 focus:border-rose-600 focus:bg-white focus:ring-4 focus:ring-rose-500/10"
+                  : "border-slate-200/90 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
               }`}
             />
           </div>
 
           {/* Payment Terms */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Payment Terms</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-800">Payment Terms</label>
             <select
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 shadow-2xs transition-all focus:border-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+              className="w-full rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3 text-base font-medium text-slate-900 shadow-2xs transition-all focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
             >
               <option value="Net 15">Net 15 (15 days)</option>
               <option value="Net 30">Net 30 (30 days)</option>
@@ -782,22 +840,22 @@ export function InvoiceForm({
         {/* Line Items Section */}
         <div className="mt-8">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">Line Items & Deliverables</h2>
+            <h2 className="text-lg font-bold text-slate-900">Line Items & Deliverables</h2>
             <button
               type="button"
               onClick={handleAddLineItem}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-100/80 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-100/80 transition-colors cursor-pointer"
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-4" />
               <span>Add Line Item</span>
             </button>
           </div>
 
-          <div className="space-y-2.5">
-            {lineItems.map((item, index) => (
+          <div className="space-y-3">
+            {lineItems.map((item) => (
               <div
                 key={item.id}
-                className="grid grid-cols-12 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3 sm:gap-3 shadow-2xs"
+                className="grid grid-cols-12 items-center gap-3 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5 shadow-2xs"
               >
                 <div className="col-span-12 sm:col-span-6">
                   <input
@@ -806,7 +864,7 @@ export function InvoiceForm({
                     placeholder="Deliverable description"
                     value={item.description}
                     onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                   />
                 </div>
                 <div className="col-span-4 sm:col-span-2">
@@ -816,12 +874,12 @@ export function InvoiceForm({
                     placeholder="Qty"
                     value={item.quantity}
                     onChange={(e) => handleItemChange(item.id, "quantity", Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                   />
                 </div>
                 <div className="col-span-5 sm:col-span-3">
                   <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-xs text-slate-400">
+                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-slate-400">
                       {currency === "EUR" ? "€" : "$"}
                     </span>
                     <input
@@ -833,7 +891,7 @@ export function InvoiceForm({
                       onChange={(e) =>
                         handleItemChange(item.id, "unitPrice", Number(e.target.value))
                       }
-                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pr-2.5 pl-6 text-xs text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pr-3 pl-7 text-sm text-slate-900 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                     />
                   </div>
                 </div>
@@ -842,7 +900,7 @@ export function InvoiceForm({
                     type="button"
                     disabled={lineItems.length <= 1}
                     onClick={() => handleRemoveLineItem(item.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                    className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                     title="Remove item"
                   >
                     <Trash2 className="size-4" />
@@ -853,9 +911,9 @@ export function InvoiceForm({
           </div>
 
           {/* Subtotal and Total */}
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-            <span className="text-xs font-medium text-slate-500">Invoice Total:</span>
-            <span className="font-mono text-base font-bold text-slate-900">
+          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+            <span className="text-sm font-semibold text-slate-600">Invoice Total:</span>
+            <span className="font-mono text-xl font-bold text-slate-900">
               {new Intl.NumberFormat("en-US", {
                 style: "currency",
                 currency,
@@ -865,20 +923,20 @@ export function InvoiceForm({
         </div>
 
         {/* Submit Button */}
-        <div className="mt-6 border-t border-slate-100 pt-4">
+        <div className="mt-6 border-t border-slate-100 pt-5">
           <button
             type="submit"
             disabled={isLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 px-5 font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-indigo-600 py-3.5 px-6 text-base font-semibold text-white shadow-md transition-all hover:bg-indigo-700 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 focus:outline-none focus:ring-4 focus:ring-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           >
             {isLoading ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-5 animate-spin" />
                 <span>Running Pre-Flight Checks & Generating via PayPal...</span>
               </>
             ) : (
               <>
-                <Send className="size-4" />
+                <Send className="size-5" />
                 <span>Analyze & Send</span>
               </>
             )}

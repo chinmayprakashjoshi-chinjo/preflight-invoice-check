@@ -344,13 +344,13 @@ function NewInvoicePage() {
 
       <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-6 desk:px-8 desk:py-8 space-y-6 flex-1">
         {/* Mode Switcher Tabs */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-100/90 p-1 w-fit shadow-2xs">
+        <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-100 p-1.5 w-fit shadow-xs">
           <button
             type="button"
             onClick={() => setViewMode("form")}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer ${
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
               viewMode === "form"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -359,9 +359,9 @@ function NewInvoicePage() {
           <button
             type="button"
             onClick={() => setViewMode("split")}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer ${
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
               viewMode === "split"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >

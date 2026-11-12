@@ -32,7 +32,7 @@ export function PreflightPanel(props: PreflightPanelProps) {
   return (
     <section
       aria-labelledby="preflight-title"
-      className="flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden wide:sticky wide:top-8 font-inter font-normal"
+      className="flex flex-col rounded-2xl border border-slate-200/90 bg-white shadow-md overflow-hidden wide:sticky wide:top-8 font-inter font-normal"
     >
       <PanelBody {...props} />
     </section>
@@ -42,26 +42,26 @@ export function PreflightPanel(props: PreflightPanelProps) {
 function PanelHeader({ issues, checking }: { issues?: Issue[]; checking: boolean }) {
   const s = issues ? summarize(issues) : null;
   return (
-    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+    <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <ShieldCheck className="size-5 text-indigo-600" aria-hidden="true" />
-          <h2 id="preflight-title" className="text-base font-semibold text-slate-900">
+          <h2 id="preflight-title" className="text-lg font-bold text-slate-900">
             Pre-flight check
           </h2>
         </div>
         <span
-          className="inline-flex items-center gap-1.5 text-xs font-normal text-slate-500"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500"
           aria-live="polite"
         >
           {checking ? (
             <>
-              <Loader2 className="size-3.5 animate-spin text-indigo-600" aria-hidden="true" />
+              <Loader2 className="size-4 animate-spin text-indigo-600" aria-hidden="true" />
               Checking
             </>
           ) : s ? (
             <>
-              <CheckCircle2 className="size-3.5 text-emerald-600" aria-hidden="true" />
+              <CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />
               Up to date
             </>
           ) : null}
@@ -215,17 +215,17 @@ function PanelBody({
 
         {passed.length > 0 && (
           <div className="rounded-xl border border-slate-200/80 bg-slate-50/40 px-4 py-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
               Passed checks
             </h3>
             <ul className="mt-2.5 space-y-2">
               {passed.map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-start gap-2 text-xs font-normal text-slate-600"
+                  className="flex items-start gap-2 text-sm font-normal text-slate-600"
                 >
                   <CheckCircle2
-                    className="mt-0.5 size-3.5 shrink-0 text-emerald-600"
+                    className="mt-0.5 size-4 shrink-0 text-emerald-600"
                     aria-hidden="true"
                   />
                   <span>

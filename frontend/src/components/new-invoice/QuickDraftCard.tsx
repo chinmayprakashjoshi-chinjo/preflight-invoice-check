@@ -41,19 +41,19 @@ export function QuickDraftCard({
   return (
     <form
       onSubmit={submit}
-      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"
+      className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-md transition-shadow"
       aria-busy={isBusy}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor="quick-draft" className="text-sm font-semibold text-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label htmlFor="quick-draft" className="text-lg font-semibold text-slate-900">
           Describe the invoice in one line
         </label>
         {isLocked && (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200/90 bg-indigo-50/90 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-2xs transition-all"
+            className="inline-flex items-center gap-2 rounded-full border border-indigo-200/90 bg-indigo-50/90 px-3.5 py-1.5 text-sm font-semibold text-indigo-700 shadow-2xs transition-all"
             title={`Net-landing calculation locked at ${formatMoney(lockedAmount, lockedCurrency || "USD")}.`}
           >
-            <Lock className="size-3 text-indigo-600" aria-hidden="true" />
+            <Lock className="size-3.5 text-indigo-600" aria-hidden="true" />
             <span>🔒 Net-Landing Price Locked</span>
             <span className="font-bold text-indigo-900">
               ({formatMoney(lockedAmount, lockedCurrency || "USD")})
@@ -62,24 +62,23 @@ export function QuickDraftCard({
         )}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2.5 sm:flex-row">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <input
           id="quick-draft"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Invoice Northwind Studio €950 for brand guidelines refresh"
-          className="h-11 w-full min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 focus-visible:border-indigo-600 focus-visible:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/10"
+          className="h-13 w-full min-w-0 flex-1 rounded-xl border border-slate-200/90 bg-slate-50/60 px-5 py-3 text-base text-slate-900 shadow-xs transition-all placeholder:text-slate-400 focus-visible:border-indigo-600 focus-visible:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
           disabled={isBusy}
         />
         <Button
           type="submit"
-          size="lg"
           disabled={isBusy || !text.trim()}
-          className="sm:w-44 shadow-sm font-semibold cursor-pointer"
+          className="h-13 px-6 py-3 text-base font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 transition-all cursor-pointer sm:w-48 shrink-0"
         >
           {isBusy ? (
             <>
-              <Loader2 className="animate-spin" aria-hidden="true" />
+              <Loader2 className="size-5 animate-spin mr-2" aria-hidden="true" />
               Generating...
             </>
           ) : (
@@ -87,7 +86,7 @@ export function QuickDraftCard({
           )}
         </Button>
       </div>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-3 text-sm text-slate-500 leading-normal">
         {isLocked
           ? `Your net-landing amount (${formatMoney(lockedAmount, lockedCurrency || "USD")}) is locked. The AI generator will fill client and deliverables while keeping this calculation safe.`
           : "Include the client, the amount and what it is for. You can edit everything afterwards."}

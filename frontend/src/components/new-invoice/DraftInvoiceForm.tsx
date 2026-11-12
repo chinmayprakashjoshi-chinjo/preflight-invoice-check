@@ -48,11 +48,11 @@ function Field({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <label htmlFor={id} className="text-xs font-medium text-foreground">
+      <label htmlFor={id} className="text-sm font-semibold text-slate-800">
         {label}
       </label>
       <div className="mt-1.5">{children}</div>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -89,20 +89,20 @@ export function DraftInvoiceForm({
   return (
     <section
       aria-labelledby="draft-title"
-      className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden"
+      className="rounded-2xl border border-slate-200/90 bg-white shadow-md overflow-hidden"
     >
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-4">
         <div>
-          <h2 id="draft-title" className="text-base font-bold text-slate-900">
+          <h2 id="draft-title" className="text-lg font-bold text-slate-900">
             Draft invoice
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-500">
             Every field is editable. Checks update as you type.
           </p>
         </div>
       </div>
 
-      <div className="space-y-6 p-5">
+      <div className="space-y-6 p-6">
         {/* Client */}
         <fieldset className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
           <legend className="sr-only">Client</legend>
@@ -222,10 +222,10 @@ export function DraftInvoiceForm({
 
         {/* Line items */}
         <fieldset className="min-w-0">
-          <legend className="text-xs font-medium text-foreground">Line items</legend>
+          <legend className="text-sm font-semibold text-foreground">Line items</legend>
           <div className="mt-2 overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[520px] text-sm">
-              <thead className="bg-muted text-left text-xs text-muted-foreground">
+              <thead className="bg-muted text-left text-sm font-semibold text-slate-700">
                 <tr>
                   <th scope="col" className="px-3 py-2 font-medium">
                     Description
@@ -327,7 +327,7 @@ export function DraftInvoiceForm({
                     </Button>
                   </td>
                   <td className="px-3 py-3 text-right" colSpan={2}>
-                    <span className="block text-xs text-muted-foreground">Total</span>
+                    <span className="block text-sm font-medium text-muted-foreground">Total</span>
                     <MoneyText amount={total} currency={draft.currency} tone="accent" size="lg" />
                   </td>
                 </tr>

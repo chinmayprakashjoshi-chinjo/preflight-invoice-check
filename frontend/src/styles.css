@@ -2,7 +2,7 @@
  * Tailwind v4 entry: config lives here, with no tailwind.config.js or PostCSS plugin.
  * Keep every @import in this top block. Web fonts load via <link> in src/routes/__root.tsx.
  */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Lexend:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -24,6 +24,7 @@
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-lexend: "Lexend", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: var(--radius);
@@ -179,7 +180,18 @@
   button,
   input,
   select,
-  textarea {
+  textarea,
+  p,
+  span,
+  div,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  label,
+  a {
     font-family: var(--font-sans) !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -189,7 +201,10 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans);
+    font-family: var(--font-sans) !important;
+    font-weight: 400; /* Inter Regular for body text */
+    font-size: 1rem;
+    line-height: 1.625;
   }
 
   :focus-visible {
@@ -202,6 +217,11 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* Sharp sans font for headers and amounts */
+.font-lexend {
+  font-family: var(--font-lexend), "Lexend", "Plus Jakarta Sans", sans-serif !important;
 }
 
 /* Brief highlight on a form field that a pre-flight fix just changed */

@@ -24,32 +24,36 @@ export function IssueCard({ issue, clientName, onFix }: IssueCardProps) {
   return (
     <article
       className={cn(
-        "rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs transition-all hover:border-slate-300 font-inter font-normal",
+        "rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-slate-300 font-inter font-normal",
         borderClass,
       )}
       aria-labelledby={`issue-${issue.id}-title`}
     >
-      <div className="flex gap-3">
+      <div className="flex gap-3.5">
         <div
-          className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", s.iconBox)}
+          className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", s.iconBox)}
           aria-hidden="true"
         >
-          <Icon className="size-[18px]" />
+          <Icon className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-2.5">
             <h3
               id={`issue-${issue.id}-title`}
-              className="text-sm font-semibold text-slate-900 leading-snug"
+              className="text-base font-semibold text-slate-900 leading-snug"
             >
               {issue.title}
             </h3>
             {canFix && (
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
-                className="h-7 rounded-md border-slate-200 bg-white px-2.5 text-xs font-normal text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 cursor-pointer"
+                className={cn(
+                  "rounded-xl px-4 py-2 text-sm font-semibold transition-colors cursor-pointer",
+                  issue.severity === "blocker"
+                    ? "bg-red-600 hover:bg-red-700 text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs",
+                )}
                 onClick={() => onFix?.(issue)}
                 aria-label={`${issue.fixLabel}: ${issue.title}`}
               >
@@ -60,11 +64,11 @@ export function IssueCard({ issue, clientName, onFix }: IssueCardProps) {
           <p className="mt-1 text-sm font-normal text-slate-600 leading-relaxed">{issue.message}</p>
 
           {issue.evidence && (
-            <figure className="mt-3 rounded-md border-l-2 border-slate-300 bg-slate-50/80 px-3 py-2 text-xs">
-              <figcaption className="text-xs font-normal text-slate-500">
+            <figure className="mt-3.5 rounded-lg border-l-2 border-slate-300 bg-slate-50/80 px-3.5 py-2.5 text-sm">
+              <figcaption className="text-sm font-medium text-slate-500">
                 From {clientName}&rsquo;s AP doc:
               </figcaption>
-              <blockquote className="mt-1 text-xs font-normal italic leading-relaxed text-slate-600">
+              <blockquote className="mt-1 text-sm font-normal italic leading-relaxed text-slate-600">
                 &ldquo;{issue.evidence}&rdquo;
               </blockquote>
             </figure>
