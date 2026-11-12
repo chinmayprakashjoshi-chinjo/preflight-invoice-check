@@ -422,7 +422,8 @@ npm run typecheck
 
 ## 👥 Hackathon Team
 
-* **Chinmay Prakash Joshi** ([@chinmayprakashjoshi-chinjo](https://github.com/chinmayprakashjoshi-chinjo)) - Full-Stack Architecture, PayPal API Integration, UI/UX & AI Co-Pilot.
+* **Chinmay Prakash Joshi** ([@chinmayprakashjoshi-chinjo](https://github.com/chinmayprakashjoshi-chinjo))
+* **Mohammed Farhaan Khan** ([@Farhaan-Coder](https://github.com/Farhaan-Coder))
 
 ---
 
