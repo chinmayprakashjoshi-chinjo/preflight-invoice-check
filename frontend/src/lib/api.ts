@@ -48,21 +48,11 @@ import {
  * In development, defaults to 'http://localhost:8000' unless overridden by VITE_API_BASE_URL.
  */
 export function getApiBaseUrl(): string {
-  const envBase = import.meta.env["VITE_API_BASE_URL"];
-  if (envBase !== undefined && envBase !== "") {
-    return envBase.replace(/\/+$/, "");
+  const envBase = (import.meta.env["VITE_API_BASE_URL"] || "").trim().replace(/\/+$/, "");
+  if (envBase) {
+    return envBase;
   }
-
-  const isProduction =
-    import.meta.env.PROD ||
-    import.meta.env.MODE === "production" ||
-    (typeof process !== "undefined" && process.env?.NODE_ENV === "production");
-
-  if (isProduction) {
-    return "";
-  }
-
-  return "http://localhost:8000";
+  return "";
 }
 
 export const API_BASE_URL: string = getApiBaseUrl();

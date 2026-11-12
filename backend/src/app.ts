@@ -20,16 +20,21 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Candidate paths for frontend/dist depending on dev vs compiled execution
+// Candidate paths for frontend build output depending on dev vs compiled execution
 const candidateDistPaths = [
+  path.resolve(__dirname, "../../frontend/dist/client"),
   path.resolve(__dirname, "../../frontend/dist"),
+  path.resolve(__dirname, "../../../../frontend/dist/client"),
   path.resolve(__dirname, "../../../../frontend/dist"),
+  path.resolve(process.cwd(), "frontend/dist/client"),
   path.resolve(process.cwd(), "frontend/dist"),
+  path.resolve(process.cwd(), "../frontend/dist/client"),
   path.resolve(process.cwd(), "../frontend/dist"),
 ];
 const frontendDistPath =
+  candidateDistPaths.find((dir) => fs.existsSync(path.join(dir, "index.html"))) ??
   candidateDistPaths.find((dir) => fs.existsSync(dir)) ??
-  path.resolve(__dirname, "../../frontend/dist");
+  path.resolve(__dirname, "../../frontend/dist/client");
 
 export const app: Express = express();
 

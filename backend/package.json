@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "build:all": "npm run build:spa --prefix ../frontend && npm run build",
     "start": "node dist/backend/src/index.js",
     "typecheck": "tsc --noEmit",
     "db:check": "tsx scripts/db-check.ts",

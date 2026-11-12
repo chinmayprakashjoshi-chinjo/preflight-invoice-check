@@ -10,7 +10,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import path from "node:path";
 
+const isBuild = process.argv.includes("build") || process.env.NODE_ENV === "production";
+
 export default defineConfig({
+  nitro: false,
   vite: {
     resolve: {
       alias: {
@@ -18,10 +21,22 @@ export default defineConfig({
         "@shared": path.resolve(__dirname, "../shared"),
       },
     },
+    ...(isBuild
+      ? {
+          define: {
+            "import.meta.env.VITE_USE_MOCKS": JSON.stringify(process.env.VITE_USE_MOCKS ?? "false"),
+          },
+        }
+      : {}),
   },
   tanstackStart: {
+    spa: {
+      enabled: true,
+      prerender: {
+        outputPath: "/index",
+      },
+    },
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
 });
