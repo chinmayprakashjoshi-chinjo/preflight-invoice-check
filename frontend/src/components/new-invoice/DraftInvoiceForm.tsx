@@ -159,7 +159,17 @@ export function DraftInvoiceForm({
           <Field id="currency" label="Currency">
             <Select
               value={draft.currency ?? "USD"}
-              onValueChange={(v) => set("currency", v as DraftInvoice["currency"])}
+              onValueChange={(v) => {
+                const nextCurr = v as DraftInvoice["currency"];
+                onChange((prev) => ({
+                  ...prev,
+                  currency: nextCurr,
+                  lineItems:
+                    prev.currency !== nextCurr
+                      ? prev.lineItems.map((li) => ({ ...li, unitPrice: 0 }))
+                      : prev.lineItems,
+                }));
+              }}
             >
               <SelectTrigger id="currency" className={flash("currency")} aria-label="Currency">
                 <SelectValue />

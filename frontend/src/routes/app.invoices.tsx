@@ -1,6 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { ClientOnly, createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,7 +10,6 @@ import {
   Search,
   Send,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,10 +24,8 @@ import { EmptyState } from "@/components/preflight/EmptyState";
 import { KpiCard } from "@/components/preflight/KpiCard";
 import { PageHeader } from "@/components/preflight/PageHeader";
 import { STATUS_LABELS } from "@/components/preflight/StatusChip";
-import { markPaid } from "@/lib/api";
+import { useInvoices } from "@/context/InvoicesContext";
 import { formatMoney } from "@/lib/format";
-import { invoicesQuery } from "@/lib/queries";
-import { seedInvoices } from "@/mocks/invoices";
 import {
   InvoiceStatusSchema,
   type Currency,
@@ -81,15 +77,16 @@ function GridSkeleton() {
 }
 
 function InvoicesPage() {
-  const queryClient = useQueryClient();
-  const invoicesQ = useQuery(invoicesQuery);
+  const {
+    invoices,
+    isLoading,
+    isError,
+    pendingId,
+    markInvoicePaid,
+    refetch,
+  } = useInvoices();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
-  const [pendingId, setPendingId] = useState<string | null>(null);
-
-  const invoices = invoicesQ.data && invoicesQ.data.length > 0 ? invoicesQ.data : seedInvoices();
-  const isLoading = invoicesQ.isLoading;
-  const isError = invoicesQ.isError && (!invoicesQ.data || invoicesQ.data.length === 0);
 
   const kpis = useMemo(() => {
     const by = (s: InvoiceStatus) => invoices.filter((i) => i.status === s);
@@ -105,22 +102,6 @@ function InvoicesPage() {
     () => (status === "all" ? invoices : invoices.filter((i) => i.status === status)),
     [invoices, status],
   );
-
-  const paidMutation = useMutation({
-    mutationFn: (inv: InvoiceRecord) => markPaid(inv.id),
-    onMutate: (inv) => setPendingId(inv.id),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<InvoiceRecord[]>(invoicesQuery.queryKey, (prev) =>
-        prev ? prev.map((i) => (i.id === updated.id ? updated : i)) : [updated],
-      );
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("INVOICING.INVOICE.PAID recorded in sandbox", {
-        description: `${updated.number} · ${formatMoney(updated.amount, updated.currency)} from ${updated.clientName}`,
-      });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update the invoice."),
-    onSettled: () => setPendingId(null),
-  });
 
   return (
     <div className="flex flex-col flex-1">
@@ -225,7 +206,7 @@ function InvoicesPage() {
               title="Could not load invoices"
               description="Check your connection and try again."
               action={
-                <Button variant="outline" onClick={() => invoicesQ.refetch()}>
+                <Button variant="outline" onClick={() => refetch()}>
                   Try again
                 </Button>
               }
@@ -251,7 +232,7 @@ function InvoicesPage() {
                   quickFilter={search}
                   context={{
                     pendingId,
-                    onMarkPaid: (inv) => paidMutation.mutate(inv),
+                    onMarkPaid: (inv) => markInvoicePaid(inv),
                   }}
                 />
               </Suspense>

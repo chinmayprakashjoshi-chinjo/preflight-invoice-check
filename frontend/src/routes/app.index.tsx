@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/preflight/PageHeader";
 import { formatMoney, formatDate, pluralize, todayIso } from "@/lib/format";
-import { clientsQuery, invoicesQuery } from "@/lib/queries";
-import { seedInvoices } from "@/mocks/invoices";
+import { clientsQuery } from "@/lib/queries";
+import { useInvoices } from "@/context/InvoicesContext";
 import { MOCK_CLIENTS } from "@/mocks/clients";
 import type { Client, Currency, InvoiceRecord, InvoiceStatus } from "@/lib/types";
 
@@ -88,10 +88,9 @@ function getLowConfidenceCount(client: Client): number {
 }
 
 function DashboardPage() {
-  const invoicesQ = useQuery(invoicesQuery);
+  const { invoices } = useInvoices();
   const clientsQ = useQuery(clientsQuery);
 
-  const invoices = invoicesQ.data && invoicesQ.data.length > 0 ? invoicesQ.data : seedInvoices();
   const clients = clientsQ.data && clientsQ.data.length > 0 ? clientsQ.data : MOCK_CLIENTS;
 
   const today = todayIso();

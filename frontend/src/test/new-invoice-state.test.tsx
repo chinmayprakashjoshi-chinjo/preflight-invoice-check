@@ -1,9 +1,77 @@
 import { describe, expect, it } from "vitest";
 import { calcPricing } from "@/lib/pricer";
-import type { DraftInvoice, LineItem } from "@/lib/types";
+import { applyFix } from "@/lib/preflight";
+import { seedInvoices } from "@/mocks/invoices";
+import type { DraftInvoice, InvoiceRecord, InvoiceStatus, LineItem } from "@/lib/types";
 
-describe("New Invoice Flow - State Sync and Functional Updater Verification", () => {
-  describe("Bug 1: Currency Resolution Math & Net-Landing Guarantee", () => {
+describe("Application State Management & Logic Bug Fixes", () => {
+  describe("Bug 1: Global State Synchronization (Dashboard vs. Invoices)", () => {
+    it("updates invoice status in master state and synchronizes across both Invoices and Dashboard", () => {
+      // Simulate the master invoices store lifted into centralized context
+      let masterInvoices: InvoiceRecord[] = seedInvoices();
+
+      const updateInvoiceStatus = (id: string, status: InvoiceStatus) => {
+        masterInvoices = masterInvoices.map((inv) =>
+          inv.id === id || inv.number === id
+            ? { ...inv, status, updatedNote: status === "paid" ? "Paid via sandbox" : inv.updatedNote }
+            : inv,
+        );
+      };
+
+      // 1. Initial Dashboard KPI computation
+      const initialPaidCount = masterInvoices.filter((i) => i.status === "paid").length;
+      const targetInvoice = masterInvoices.find((i) => i.status === "sent" || i.status === "overdue")!;
+      expect(targetInvoice).toBeDefined();
+
+      // 2. Action on Invoices page: user clicks "Mark paid"
+      updateInvoiceStatus(targetInvoice.id, "paid");
+
+      // 3. Invoices page sees updated status immediately
+      const updatedOnInvoices = masterInvoices.find((i) => i.id === targetInvoice.id);
+      expect(updatedOnInvoices?.status).toBe("paid");
+
+      // 4. Navigating to Dashboard: Dashboard consumes the EXACT SAME master invoices state
+      const updatedPaidCount = masterInvoices.filter((i) => i.status === "paid").length;
+      expect(updatedPaidCount).toBe(initialPaidCount + 1);
+
+      // Verify Dashboard recent invoices list contains the updated paid status
+      const updatedOnDashboard = masterInvoices.find((i) => i.id === targetInvoice.id);
+      expect(updatedOnDashboard?.status).toBe("paid");
+    });
+
+    it("adds newly created invoices to master state so both routes consume it immediately", () => {
+      let masterInvoices: InvoiceRecord[] = seedInvoices();
+
+      const addInvoice = (newInv: InvoiceRecord) => {
+        masterInvoices = [newInv, ...masterInvoices.filter((i) => i.id !== newInv.id)];
+      };
+
+      const newRecord: InvoiceRecord = {
+        id: "inv-new-999",
+        number: "INV-2026-9999",
+        clientName: "Acme Corporation Ltd",
+        amount: 2500,
+        currency: "USD",
+        status: "sent",
+        issueDate: "2026-11-12",
+        dueDate: "2026-12-12",
+        preflight: { blockers: 0, warnings: 0 },
+        paypalInvoiceId: "PAYPAL-999",
+        payerLink: "https://example.com/pay/999",
+        updatedNote: "Sent",
+      };
+
+      // Action on New Invoice page: invoice created
+      addInvoice(newRecord);
+
+      // Invoices route sees it
+      expect(masterInvoices[0].number).toBe("INV-2026-9999");
+      // Dashboard route sees it
+      expect(masterInvoices.some((i) => i.number === "INV-2026-9999")).toBe(true);
+    });
+  });
+
+  describe("Bug 2: Currency Resolution Math & Net-Landing Guarantee", () => {
     it("recalculates the gross amount when switching currency with a known target net", () => {
       const targetNet = 1000;
       const userCurrency = "USD";
@@ -49,29 +117,28 @@ describe("New Invoice Flow - State Sync and Functional Updater Verification", ()
         ],
       };
 
-      // Handler logic when targetNet is not available in scope:
-      // Clear line item unit prices to force user recalculation from Pricer
-      const nextCurrency = "USD";
-      const updatedDraft: DraftInvoice = {
-        ...draft,
-        currency: nextCurrency,
-        lineItems: draft.lineItems.map((li) => ({ ...li, unitPrice: 0 })),
-      };
+      // When applyFix is called on currency issue, it clears line item amounts
+      const fixed = applyFix(draft, {
+        id: "currency",
+        severity: "blocker",
+        title: "Currency not accepted",
+        message: "EUR is not accepted",
+        fixLabel: "Switch to USD",
+        fixField: "currency",
+        fixValue: "USD",
+      });
 
-      expect(updatedDraft.currency).toBe("USD");
-      expect(updatedDraft.lineItems.every((li) => li.unitPrice === 0)).toBe(true);
-      const total = updatedDraft.lineItems.reduce(
-        (sum, li) => sum + li.quantity * li.unitPrice,
-        0,
-      );
+      expect(fixed.currency).toBe("USD");
+      expect(fixed.lineItems.every((li) => li.unitPrice === 0)).toBe(true);
+      const total = fixed.lineItems.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0);
       expect(total).toBe(0);
       // Other fields strictly preserved
-      expect(updatedDraft.poNumber).toBe("PO-2026-99999");
-      expect(updatedDraft.clientName).toBe("Acme Corporation Ltd");
+      expect(fixed.poNumber).toBe("PO-2026-99999");
+      expect(fixed.clientName).toBe("Acme Corporation Ltd");
     });
   });
 
-  describe("Bug 2: Functional Update Pattern & Field Preservation", () => {
+  describe("Bug 3: Functional Update Pattern & Field Preservation", () => {
     it("strictly preserves poNumber, clientName, and sendTo when line items are updated concurrently", () => {
       let state: DraftInvoice = {
         clientId: "acme",

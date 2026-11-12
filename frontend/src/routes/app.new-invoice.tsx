@@ -17,6 +17,7 @@ import { formatMoney, invoiceTotal, pluralize, todayIso } from "@/lib/format";
 import { applyFix, preflight, summarize } from "@/lib/preflight";
 import { calcPricing } from "@/lib/pricer";
 import { clientsQuery } from "@/lib/queries";
+import { useInvoices } from "@/context/InvoicesContext";
 import { MOCK_CLIENTS } from "@/mocks/clients";
 import {
   CURRENCIES,
@@ -72,6 +73,7 @@ export const Route = createFileRoute("/app/new-invoice")({
 });
 
 function NewInvoicePage() {
+  const { addInvoice } = useInvoices();
   const [viewMode, setViewMode] = useState<"split" | "form">("split");
   const {
     amount: prefillAmount,
@@ -190,12 +192,7 @@ function NewInvoicePage() {
     mutationFn: () => sendInvoice(draft, issues ?? []),
     onSuccess: (record) => {
       setSent(record);
-      recordCreatedInvoice(record);
-      queryClient.setQueryData<InvoiceRecord[]>(["invoices"], (prev) => [
-        record,
-        ...(prev ? prev.filter((i) => i.id !== record.id) : []),
-      ]);
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      addInvoice(record);
       toast.success("Invoice sent in PayPal Sandbox", {
         description: `${record.number} · ${formatMoney(record.amount, record.currency)} to ${draft.sendTo || record.clientName}`,
       });

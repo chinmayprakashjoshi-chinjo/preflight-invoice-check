@@ -253,7 +253,13 @@ export function applyFix(invoice: DraftInvoice, issue: Issue): DraftInvoice {
     case "sendTo":
       return { ...invoice, sendTo: v };
     case "currency":
-      return CURRENCIES.includes(v as Currency) ? { ...invoice, currency: v as Currency } : invoice;
+      return CURRENCIES.includes(v as Currency)
+        ? {
+            ...invoice,
+            currency: v as Currency,
+            lineItems: invoice.lineItems.map((li: LineItem) => ({ ...li, unitPrice: 0 })),
+          }
+        : invoice;
     case "paymentTerms":
       return v === "Net 15" || v === "Net 30" || v === "Net 45"
         ? { ...invoice, paymentTerms: v }
