@@ -7,11 +7,22 @@ interface SendAreaProps {
   warnings: number;
   checking: boolean;
   sending: boolean;
+  canSend?: boolean;
+  total?: number;
   onSend: () => void;
 }
 
-export function SendArea({ blockers, warnings, checking, sending, onSend }: SendAreaProps) {
+export function SendArea({
+  blockers,
+  warnings,
+  checking,
+  sending,
+  canSend = true,
+  total,
+  onSend,
+}: SendAreaProps) {
   const blocked = blockers > 0;
+  const zeroTotal = total !== undefined && total <= 0;
 
   return (
     <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-5 font-inter font-normal">
@@ -32,6 +43,23 @@ export function SendArea({ blockers, warnings, checking, sending, onSend }: Send
             Resolve {pluralize(blockers, "blocker")} before sending
           </p>
         </>
+      ) : zeroTotal ? (
+        <>
+          <Button
+            type="button"
+            variant="locked"
+            size="lg"
+            className="w-full h-12 rounded-xl text-base font-semibold"
+            disabled
+            aria-describedby="send-hint"
+          >
+            <Lock aria-hidden="true" className="size-4" />
+            Send via PayPal
+          </Button>
+          <p id="send-hint" className="mt-2.5 text-center text-sm font-medium text-amber-600">
+            Enter a line item amount before sending
+          </p>
+        </>
       ) : (
         <>
           <Button
@@ -40,7 +68,7 @@ export function SendArea({ blockers, warnings, checking, sending, onSend }: Send
             size="lg"
             className="w-full h-12 rounded-xl text-base font-semibold shadow-sm hover:shadow-md cursor-pointer transition-all"
             onClick={onSend}
-            disabled={sending || checking}
+            disabled={!canSend || sending || checking}
           >
             {sending ? (
               <>

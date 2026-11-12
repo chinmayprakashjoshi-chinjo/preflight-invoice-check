@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ interface DraftInvoiceFormProps {
   draft: DraftInvoice;
   clients: Client[];
   clientsLoading: boolean;
-  onChange: (next: DraftInvoice) => void;
+  onChange: Dispatch<SetStateAction<DraftInvoice>>;
   onClientChange: (clientId: string) => void;
   /** Field that a pre-flight fix just changed, highlighted briefly. */
   flashField: FixField | null;
@@ -67,21 +67,27 @@ export function DraftInvoiceForm({
   flashLineId,
 }: DraftInvoiceFormProps) {
   const set = <K extends keyof DraftInvoice>(key: K, value: DraftInvoice[K]) =>
-    onChange({ ...draft, [key]: value });
+    onChange((prev) => ({ ...prev, [key]: value }));
 
   const flash = (field: FixField) => (flashField === field ? "field-flash" : "");
 
   const updateLine = (id: string, patch: Partial<LineItem>) =>
-    set(
-      "lineItems",
-      draft.lineItems.map((li) => (li.id === id ? { ...li, ...patch } : li)),
-    );
+    onChange((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.map((li) => (li.id === id ? { ...li, ...patch } : li)),
+    }));
 
   const removeLine = (id: string) =>
-    set(
-      "lineItems",
-      draft.lineItems.filter((li) => li.id !== id),
-    );
+    onChange((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.filter((li) => li.id !== id),
+    }));
+
+  const addLine = () =>
+    onChange((prev) => ({
+      ...prev,
+      lineItems: [...prev.lineItems, newLineItem()],
+    }));
 
   const total = invoiceTotal(draft);
   const dueDate = dueDateFor(draft);
@@ -127,7 +133,7 @@ export function DraftInvoiceForm({
           <Field id="client-name" label="Bill to (name on invoice)">
             <Input
               id="client-name"
-              value={draft.clientName}
+              value={draft.clientName ?? ""}
               onChange={(e) => set("clientName", e.target.value)}
               placeholder="Client's legal name"
               className={flash("clientName")}
@@ -138,7 +144,7 @@ export function DraftInvoiceForm({
             <Input
               id="send-to"
               type="email"
-              value={draft.sendTo}
+              value={draft.sendTo ?? ""}
               onChange={(e) => set("sendTo", e.target.value)}
               placeholder="ap@client.example"
               className={flash("sendTo")}
@@ -152,7 +158,7 @@ export function DraftInvoiceForm({
           <legend className="sr-only">Terms and references</legend>
           <Field id="currency" label="Currency">
             <Select
-              value={draft.currency}
+              value={draft.currency ?? "USD"}
               onValueChange={(v) => set("currency", v as DraftInvoice["currency"])}
             >
               <SelectTrigger id="currency" className={flash("currency")} aria-label="Currency">
@@ -169,7 +175,7 @@ export function DraftInvoiceForm({
           </Field>
           <Field id="terms" label="Payment terms">
             <Select
-              value={draft.paymentTerms}
+              value={draft.paymentTerms ?? "Net 30"}
               onValueChange={(v) => set("paymentTerms", v as DraftInvoice["paymentTerms"])}
             >
               <SelectTrigger
@@ -191,7 +197,7 @@ export function DraftInvoiceForm({
           <Field id="po" label="PO reference">
             <Input
               id="po"
-              value={draft.poNumber}
+              value={draft.poNumber ?? ""}
               onChange={(e) => set("poNumber", e.target.value)}
               placeholder="PO-2026-00000"
               className={cn("tabular", flash("poNumber"))}
@@ -200,7 +206,7 @@ export function DraftInvoiceForm({
           <Field id="vat" label="VAT ID">
             <Input
               id="vat"
-              value={draft.vatId}
+              value={draft.vatId ?? ""}
               onChange={(e) => set("vatId", e.target.value)}
               placeholder="Optional"
               className={cn("tabular", flash("vatId"))}
@@ -210,7 +216,7 @@ export function DraftInvoiceForm({
             <Input
               id="invoice-date"
               type="date"
-              value={draft.invoiceDate}
+              value={draft.invoiceDate ?? ""}
               onChange={(e) => set("invoiceDate", e.target.value)}
               className="tabular"
             />
@@ -257,7 +263,7 @@ export function DraftInvoiceForm({
                     <td className="px-2 py-2">
                       <Input
                         aria-label={`Line ${idx + 1} description`}
-                        value={li.description}
+                        value={li.description ?? ""}
                         onChange={(e) => updateLine(li.id, { description: e.target.value })}
                         placeholder="What did you deliver?"
                         className={cn(
@@ -274,7 +280,7 @@ export function DraftInvoiceForm({
                         min={0}
                         step="1"
                         inputMode="decimal"
-                        value={li.quantity}
+                        value={li.quantity ?? 1}
                         onChange={(e) =>
                           updateLine(li.id, { quantity: Math.max(0, Number(e.target.value) || 0) })
                         }
@@ -288,7 +294,7 @@ export function DraftInvoiceForm({
                         min={0}
                         step="0.01"
                         inputMode="decimal"
-                        value={li.unitPrice}
+                        value={li.unitPrice ?? 0}
                         onChange={(e) =>
                           updateLine(li.id, { unitPrice: Math.max(0, Number(e.target.value) || 0) })
                         }
@@ -320,7 +326,7 @@ export function DraftInvoiceForm({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => set("lineItems", [...draft.lineItems, newLineItem()])}
+                      onClick={addLine}
                     >
                       <Plus aria-hidden="true" />
                       Add item

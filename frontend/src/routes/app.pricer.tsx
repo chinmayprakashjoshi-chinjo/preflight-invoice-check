@@ -369,6 +369,8 @@ function PricerPage() {
                     search: {
                       amount: Math.round(result.invoiceAmount * 100) / 100,
                       currency: result.invoiceCurrency,
+                      targetNet: Math.round(result.net * 100) / 100,
+                      userCurrency: currency,
                     },
                   })
                 }

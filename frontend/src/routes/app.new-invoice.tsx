@@ -13,8 +13,9 @@ import { InvoiceForm } from "@/components/InvoiceForm";
 import { demoDraft, emptyDraft, newLineItem } from "@/components/new-invoice/draft-utils";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { draftInvoice, recordCreatedInvoice, runPreflight, sendInvoice } from "@/lib/api";
-import { formatMoney, pluralize, todayIso } from "@/lib/format";
+import { formatMoney, invoiceTotal, pluralize, todayIso } from "@/lib/format";
 import { applyFix, preflight, summarize } from "@/lib/preflight";
+import { calcPricing } from "@/lib/pricer";
 import { clientsQuery } from "@/lib/queries";
 import { MOCK_CLIENTS } from "@/mocks/clients";
 import {
@@ -30,16 +31,25 @@ import { cn } from "@/lib/utils";
 interface NewInvoiceSearch {
   amount?: number | undefined;
   currency?: Currency | undefined;
+  targetNet?: number | undefined;
+  userCurrency?: Currency | undefined;
 }
 
 export const Route = createFileRoute("/app/new-invoice")({
   validateSearch: (search: Record<string, unknown>): NewInvoiceSearch => {
     const amount = Number(search["amount"]);
     const currency = search["currency"] as string | undefined;
+    const targetNet = Number(search["targetNet"]);
+    const userCurrency = search["userCurrency"] as string | undefined;
     return {
       amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
       currency:
         currency && CURRENCIES.includes(currency as Currency) ? (currency as Currency) : undefined,
+      targetNet: Number.isFinite(targetNet) && targetNet > 0 ? targetNet : undefined,
+      userCurrency:
+        userCurrency && CURRENCIES.includes(userCurrency as Currency)
+          ? (userCurrency as Currency)
+          : undefined,
     };
   },
   head: () => ({
@@ -63,10 +73,21 @@ export const Route = createFileRoute("/app/new-invoice")({
 
 function NewInvoicePage() {
   const [viewMode, setViewMode] = useState<"split" | "form">("split");
-  const { amount: prefillAmount, currency: prefillCurrency } = Route.useSearch();
+  const {
+    amount: prefillAmount,
+    currency: prefillCurrency,
+    targetNet: prefillTargetNet,
+    userCurrency: prefillUserCurrency,
+  } = Route.useSearch();
   const queryClient = useQueryClient();
   const clientsQ = useQuery(clientsQuery);
   const clients = clientsQ.data && clientsQ.data.length > 0 ? clientsQ.data : MOCK_CLIENTS;
+
+  // Track the original target net amount and user currency to enable accurate recalculations on currency switch
+  const [targetNet, setTargetNet] = useState<number | null>(() =>
+    prefillTargetNet !== undefined && prefillTargetNet > 0 ? prefillTargetNet : null,
+  );
+  const [userCurrency, setUserCurrency] = useState<Currency>(() => prefillUserCurrency ?? "USD");
 
   // Specific state for preserving and locking net-landing pricer calculations
   const [lockedAmount, setLockedAmount] = useState<number | null>(() =>
@@ -94,6 +115,12 @@ function NewInvoicePage() {
 
   // Synchronize locked amount & draft line item when navigated from Pricer
   useEffect(() => {
+    if (prefillTargetNet !== undefined && prefillTargetNet > 0) {
+      setTargetNet(prefillTargetNet);
+    }
+    if (prefillUserCurrency) {
+      setUserCurrency(prefillUserCurrency);
+    }
     if (prefillAmount !== undefined && prefillAmount > 0) {
       setLockedAmount(prefillAmount);
       if (prefillCurrency) setLockedCurrency(prefillCurrency);
@@ -114,7 +141,7 @@ function NewInvoicePage() {
               ],
       }));
     }
-  }, [prefillAmount, prefillCurrency]);
+  }, [prefillAmount, prefillCurrency, prefillTargetNet, prefillUserCurrency]);
 
   const client =
     clients.find((c) => c.id === draft.clientId) ??
@@ -149,8 +176,14 @@ function NewInvoicePage() {
       !preflightQ.isError);
   const summary = useMemo(() => (issues ? summarize(issues) : null), [issues]);
 
+  const total = invoiceTotal(draft);
   const canSend = Boolean(
-    summary && summary.blockers === 0 && !sendMutation.isPending && !isGenerating && !sent,
+    summary &&
+      summary.blockers === 0 &&
+      total > 0 &&
+      !sendMutation.isPending &&
+      !isGenerating &&
+      !sent,
   );
 
   const sendMutation = useMutation({
@@ -278,7 +311,58 @@ function NewInvoicePage() {
   }
 
   function handleFix(issue: Issue) {
-    setDraft((d: DraftInvoice) => applyFix(d, issue));
+    if (issue.fixField === "currency") {
+      const nextCurrency = (issue.fixValue as Currency) || "USD";
+      if (targetNet && targetNet > 0) {
+        // Re-trigger the Pricer calculation utility to compute new gross based on original target net
+        const pricing = calcPricing({
+          targetNet,
+          currency: userCurrency,
+          clientCurrency: nextCurrency,
+          crossCurrency: userCurrency !== nextCurrency,
+        });
+        const newGross = pricing.invoiceAmount;
+
+        setDraft((prev: DraftInvoice) => ({
+          ...prev,
+          currency: nextCurrency,
+          lineItems:
+            prev.lineItems.length > 0
+              ? prev.lineItems.map((li, idx) =>
+                  idx === 0 ? { ...li, unitPrice: newGross } : li,
+                )
+              : [
+                  newLineItem({
+                    description: "Services rendered",
+                    quantity: 1,
+                    unitPrice: newGross,
+                  }),
+                ],
+        }));
+        setLockedAmount(newGross);
+        setLockedCurrency(nextCurrency);
+        toast.info(`Switched currency to ${nextCurrency}`, {
+          description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} to guarantee ${formatMoney(targetNet, userCurrency)} net in pocket.`,
+        });
+      } else {
+        // Original target amount isn't available in scope:
+        // Update currency and automatically clear Line Items / Total
+        setDraft((prev: DraftInvoice) => ({
+          ...prev,
+          currency: nextCurrency,
+          lineItems: prev.lineItems.map((li) => ({ ...li, unitPrice: 0 })),
+        }));
+        setLockedAmount(null);
+        setLockedCurrency(null);
+        toast.warning(`Switched currency to ${nextCurrency}`, {
+          description:
+            "Line item amounts cleared. Please use the Net-Landing Pricer to recalculate the exact gross amount.",
+        });
+      }
+    } else {
+      setDraft((d: DraftInvoice) => applyFix(d, issue));
+    }
+
     if (issue.fixField) {
       setFlash({ field: issue.fixField, lineId: issue.fixTargetId });
       if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -290,6 +374,7 @@ function NewInvoicePage() {
     setSent(null);
     setLockedAmount(null);
     setLockedCurrency(null);
+    setTargetNet(null);
     setDraft(emptyDraft());
   }
 
@@ -318,7 +403,9 @@ function NewInvoicePage() {
               aria-label={
                 summary && summary.blockers > 0
                   ? `Send via PayPal, locked: resolve ${pluralize(summary.blockers, "blocker")} first`
-                  : "Send via PayPal"
+                  : total <= 0
+                    ? "Enter a line item amount to send"
+                    : "Send via PayPal"
               }
             >
               {sendMutation.isPending ? (
@@ -373,6 +460,8 @@ function NewInvoicePage() {
           <InvoiceForm
             prefillAmount={prefillAmount}
             prefillCurrency={prefillCurrency}
+            targetNetProp={targetNet}
+            userCurrencyProp={userCurrency}
             lockedAmountProp={lockedAmount}
             lockedCurrencyProp={lockedCurrency}
           />
@@ -413,8 +502,14 @@ function NewInvoicePage() {
                 checking={checking}
                 sending={sendMutation.isPending}
                 sent={sent}
+                canSend={canSend}
+                total={total}
                 onFix={handleFix}
-                onSend={() => sendMutation.mutate()}
+                onSend={() => {
+                  if (canSend && !sendMutation.isPending) {
+                    sendMutation.mutate();
+                  }
+                }}
                 onStartNew={handleStartNew}
               />
             </div>

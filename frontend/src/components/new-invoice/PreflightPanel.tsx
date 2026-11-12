@@ -23,6 +23,8 @@ interface PreflightPanelProps {
   checking: boolean;
   sending: boolean;
   sent: InvoiceRecord | null;
+  canSend?: boolean;
+  total?: number;
   onFix: (issue: Issue) => void;
   onSend: () => void;
   onStartNew: () => void;
@@ -78,6 +80,8 @@ function PanelBody({
   checking,
   sending,
   sent,
+  canSend,
+  total,
   onFix,
   onSend,
   onStartNew,
@@ -245,6 +249,8 @@ function PanelBody({
         warnings={warnings.length}
         checking={checking}
         sending={sending}
+        canSend={canSend}
+        total={total}
         onSend={onSend}
       />
     </>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientsQuery } from "@/lib/queries";
 import { API_BASE_URL, draftInvoice, recordCreatedInvoice, sendInvoice } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import { calcPricing } from "@/lib/pricer";
 import { toast } from "sonner";
 import { QuickDraftCard } from "@/components/new-invoice/QuickDraftCard";
 import {
@@ -122,17 +123,25 @@ const CLIENT_PRESETS = [
 export function InvoiceForm({
   prefillAmount,
   prefillCurrency,
+  targetNetProp,
+  userCurrencyProp,
   lockedAmountProp,
   lockedCurrencyProp,
 }: {
   prefillAmount?: number | undefined;
   prefillCurrency?: Currency | string | undefined;
+  targetNetProp?: number | null | undefined;
+  userCurrencyProp?: Currency | undefined;
   lockedAmountProp?: number | null | undefined;
   lockedCurrencyProp?: Currency | string | null | undefined;
 } = {}) {
   const queryClient = useQueryClient();
   const clientsQ = useQuery(clientsQuery);
   const clients = clientsQ.data ?? [];
+
+  // Track target net amount and user receiving currency for math synchronization
+  const [targetNet, setTargetNet] = useState<number | null>(() => targetNetProp ?? null);
+  const [userCurrency, setUserCurrency] = useState<Currency>(() => userCurrencyProp ?? "USD");
 
   // Dedicated lockedAmount state to protect calculated pricer values from AI prompt overwrites
   const [lockedAmount, setLockedAmount] = useState<number | null>(() =>
@@ -161,6 +170,12 @@ export function InvoiceForm({
   ]);
 
   useEffect(() => {
+    if (targetNetProp !== undefined && targetNetProp !== null) {
+      setTargetNet(targetNetProp);
+    }
+    if (userCurrencyProp) {
+      setUserCurrency(userCurrencyProp);
+    }
     if (lockedAmountProp !== undefined && lockedAmountProp !== null) {
       setLockedAmount(lockedAmountProp);
     } else if (prefillAmount !== undefined && prefillAmount > 0) {
@@ -180,7 +195,14 @@ export function InvoiceForm({
         setCurrency(prefillCurrency);
       }
     }
-  }, [prefillAmount, prefillCurrency, lockedAmountProp, lockedCurrencyProp]);
+  }, [
+    prefillAmount,
+    prefillCurrency,
+    targetNetProp,
+    userCurrencyProp,
+    lockedAmountProp,
+    lockedCurrencyProp,
+  ]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [blockers, setBlockers] = useState<BlockerIssue[] | null>(null);
@@ -320,8 +342,8 @@ export function InvoiceForm({
   };
 
   const handleAddLineItem = () => {
-    setLineItems([
-      ...lineItems,
+    setLineItems((prev) => [
+      ...prev,
       {
         id: `item-${Date.now()}`,
         description: "",
@@ -332,14 +354,12 @@ export function InvoiceForm({
   };
 
   const handleRemoveLineItem = (id: string) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((item) => item.id !== id));
-    }
+    setLineItems((prev) => (prev.length > 1 ? prev.filter((item) => item.id !== id) : prev));
   };
 
   const handleItemChange = (id: string, field: keyof LineItem, val: string | number) => {
-    setLineItems(
-      lineItems.map((item) => {
+    setLineItems((prev) =>
+      prev.map((item) => {
         if (item.id === id) {
           return { ...item, [field]: val };
         }
@@ -354,7 +374,34 @@ export function InvoiceForm({
     } else if (blocker.fixField === "clientName") {
       setClientName(blocker.fixValue || "Acme Corporation Ltd");
     } else if (blocker.fixField === "currency") {
-      setCurrency(blocker.fixValue || "USD");
+      const nextCurrency = (blocker.fixValue as Currency) || "USD";
+      if (targetNet && targetNet > 0) {
+        const pricing = calcPricing({
+          targetNet,
+          currency: userCurrency,
+          clientCurrency: nextCurrency,
+          crossCurrency: userCurrency !== nextCurrency,
+        });
+        const newGross = pricing.invoiceAmount;
+        setCurrency(nextCurrency);
+        setLockedAmount(newGross);
+        setLockedCurrency(nextCurrency);
+        setLineItems((prev) =>
+          prev.map((item, idx) => (idx === 0 ? { ...item, unitPrice: newGross } : item)),
+        );
+        toast.info(`Currency switched to ${nextCurrency}`, {
+          description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} for target net of ${formatMoney(targetNet, userCurrency)}.`,
+        });
+      } else {
+        setCurrency(nextCurrency);
+        setLockedAmount(null);
+        setLockedCurrency(null);
+        setLineItems((prev) => prev.map((item) => ({ ...item, unitPrice: 0 })));
+        toast.warning(`Currency switched to ${nextCurrency}`, {
+          description:
+            "Line item amounts cleared. Please use the Net-Landing Pricer to recalculate the exact gross amount.",
+        });
+      }
     }
     // Remove the fixed blocker from the list
     if (blockers) {
@@ -365,6 +412,10 @@ export function InvoiceForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (totalAmount <= 0) {
+      setGeneralError("Invoice total must be greater than zero. Please enter line item amounts.");
+      return;
+    }
     setIsLoading(true);
     setBlockers(null);
     setGeneralError(null);
@@ -480,6 +531,7 @@ export function InvoiceForm({
     setGeneralError(null);
     setLockedAmount(null);
     setLockedCurrency(null);
+    setTargetNet(null);
     setPoNumber("");
     setLineItems([
       {
