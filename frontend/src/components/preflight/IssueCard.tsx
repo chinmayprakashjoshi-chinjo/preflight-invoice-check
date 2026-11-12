@@ -54,7 +54,15 @@ export function IssueCard({ issue, clientName, onFix }: IssueCardProps) {
                     ? "bg-red-600 hover:bg-red-700 text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs",
                 )}
-                onClick={() => onFix?.(issue)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    onFix?.(issue);
+                  } catch (err) {
+                    console.error("[IssueCard] Error invoking onFix:", err);
+                  }
+                }}
                 aria-label={`${issue.fixLabel}: ${issue.title}`}
               >
                 {issue.fixLabel}

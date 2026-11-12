@@ -369,44 +369,62 @@ export function InvoiceForm({
   };
 
   const handleQuickFix = (blocker: BlockerIssue) => {
-    if (blocker.fixField === "poNumber") {
-      setPoNumber(blocker.fixValue || "PO-2026-04418");
-    } else if (blocker.fixField === "clientName") {
-      setClientName(blocker.fixValue || "Acme Corporation Ltd");
-    } else if (blocker.fixField === "currency") {
-      const nextCurrency = (blocker.fixValue as Currency) || "USD";
-      if (targetNet && targetNet > 0) {
-        const pricing = calcPricing({
-          targetNet,
-          currency: userCurrency,
-          clientCurrency: nextCurrency,
-          crossCurrency: userCurrency !== nextCurrency,
-        });
-        const newGross = pricing.invoiceAmount;
-        setCurrency(nextCurrency);
-        setLockedAmount(newGross);
-        setLockedCurrency(nextCurrency);
+    try {
+      if (blocker.fixField === "poNumber") {
+        setPoNumber(String(blocker.fixValue || "PO-2026-04418"));
+      } else if (blocker.fixField === "clientName") {
+        setClientName(String(blocker.fixValue || "Acme Corporation Ltd"));
+      } else if (blocker.fixField === "currency") {
+        const nextCurrency = (blocker.fixValue as Currency) || "USD";
+        if (targetNet && targetNet > 0) {
+          const pricing = calcPricing({
+            targetNet,
+            currency: userCurrency,
+            clientCurrency: nextCurrency,
+            crossCurrency: userCurrency !== nextCurrency,
+          });
+          const newGross = pricing.invoiceAmount;
+          setCurrency(nextCurrency);
+          setLockedAmount(newGross);
+          setLockedCurrency(nextCurrency);
+          setLineItems((prev) =>
+            prev.length > 0
+              ? prev.map((item, idx) => (idx === 0 ? { ...item, unitPrice: newGross } : item))
+              : [{ id: "item-1", description: "Services rendered", quantity: 1, unitPrice: newGross }],
+          );
+          toast.info(`Currency switched to ${nextCurrency}`, {
+            description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} for target net of ${formatMoney(targetNet, userCurrency)}.`,
+          });
+        } else {
+          setCurrency(nextCurrency);
+          setLockedAmount(null);
+          setLockedCurrency(null);
+          setLineItems([]);
+          toast.warning(`Currency switched to ${nextCurrency}`, {
+            description:
+              "Line items and total cleared. Please use the Net-Landing Pricer to recalculate the exact gross amount.",
+          });
+        }
+      } else if (blocker.fixField === "lineItemDescription") {
+        let desc = typeof blocker.fixValue === "string" ? blocker.fixValue : "";
+        if (!desc && blocker.fixValue && typeof blocker.fixValue === "object") {
+          desc = String((blocker.fixValue as any).description || (blocker.fixValue as any).text || "");
+        }
+        if (!desc.trim()) desc = "Professional services: scope, deliverables and handover";
         setLineItems((prev) =>
-          prev.map((item, idx) => (idx === 0 ? { ...item, unitPrice: newGross } : item)),
+          prev.length > 0
+            ? prev.map((item, idx) => (idx === 0 ? { ...item, description: desc } : item))
+            : [{ id: "item-1", description: desc, quantity: 1, unitPrice: 0 }],
         );
-        toast.info(`Currency switched to ${nextCurrency}`, {
-          description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} for target net of ${formatMoney(targetNet, userCurrency)}.`,
-        });
-      } else {
-        setCurrency(nextCurrency);
-        setLockedAmount(null);
-        setLockedCurrency(null);
-        setLineItems((prev) => prev.map((item) => ({ ...item, unitPrice: 0 })));
-        toast.warning(`Currency switched to ${nextCurrency}`, {
-          description:
-            "Line item amounts cleared. Please use the Net-Landing Pricer to recalculate the exact gross amount.",
-        });
+        toast.success("Description updated");
       }
-    }
-    // Remove the fixed blocker from the list
-    if (blockers) {
-      const remaining = blockers.filter((b) => b.id !== blocker.id);
-      setBlockers(remaining.length > 0 ? remaining : null);
+      // Remove the fixed blocker from the list
+      if (blockers) {
+        const remaining = blockers.filter((b) => b.id !== blocker.id);
+        setBlockers(remaining.length > 0 ? remaining : null);
+      }
+    } catch (err) {
+      console.error("[InvoiceForm] handleQuickFix error:", err);
     }
   };
 

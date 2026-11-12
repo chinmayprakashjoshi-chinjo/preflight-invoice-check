@@ -30,7 +30,8 @@ const GENERIC_DESCRIPTIONS = new Set([
   "services rendered",
 ]);
 
-export function isWeakDescription(description: string): boolean {
+export function isWeakDescription(description?: string | null): boolean {
+  if (!description || typeof description !== "string") return true;
   const cleaned = description
     .trim()
     .toLowerCase()
@@ -42,10 +43,11 @@ export function isWeakDescription(description: string): boolean {
 }
 
 /** Suggests a more specific line description the client's AP team can match to a PO. */
-export function improveDescription(description: string, invoiceDate: string): string {
-  const base = description.trim() || "Professional services";
+export function improveDescription(description?: string | null, invoiceDate?: string | null): string {
+  const safeDesc = typeof description === "string" ? description.trim() : "";
+  const base = safeDesc || "Professional services";
   const capitalised = base.charAt(0).toUpperCase() + base.slice(1);
-  const month = monthYear(invoiceDate);
+  const month = invoiceDate ? monthYear(invoiceDate) : "";
   return `${capitalised}: scope, deliverables and handover${month ? ` (${month})` : ""}`;
 }
 
@@ -241,36 +243,82 @@ export function preflight(invoice: DraftInvoice, req: ClientRequirements): Issue
 
 /** Applies an issue's suggested fix to the draft. Returns a new draft. */
 export function applyFix(invoice: DraftInvoice, issue: Issue): DraftInvoice {
-  if (!issue.fixField || issue.fixValue === undefined) return invoice;
+  if (!invoice) return invoice;
+  if (!issue || !issue.fixField || issue.fixValue === undefined) return invoice;
   const v = issue.fixValue;
   switch (issue.fixField) {
     case "clientName":
-      return { ...invoice, clientName: v };
+      return { ...invoice, clientName: typeof v === "string" ? v : String(v ?? "") };
     case "poNumber":
-      return { ...invoice, poNumber: v };
+      return { ...invoice, poNumber: typeof v === "string" ? v : String(v ?? "") };
     case "vatId":
-      return { ...invoice, vatId: v };
+      return { ...invoice, vatId: typeof v === "string" ? v : String(v ?? "") };
     case "sendTo":
-      return { ...invoice, sendTo: v };
-    case "currency":
-      return CURRENCIES.includes(v as Currency)
+      return { ...invoice, sendTo: typeof v === "string" ? v : String(v ?? "") };
+    case "currency": {
+      const targetCurr = (typeof v === "string" ? v : String(v ?? "")) as Currency;
+      return CURRENCIES.includes(targetCurr)
         ? {
             ...invoice,
-            currency: v as Currency,
-            lineItems: invoice.lineItems.map((li: LineItem) => ({ ...li, unitPrice: 0 })),
+            currency: targetCurr,
+            lineItems: [],
           }
         : invoice;
+    }
     case "paymentTerms":
       return v === "Net 15" || v === "Net 30" || v === "Net 45"
         ? { ...invoice, paymentTerms: v }
         : invoice;
-    case "lineItemDescription":
+    case "lineItemDescription": {
+      let descString = "";
+      if (typeof v === "string") {
+        descString = v;
+      } else if (v && typeof v === "object") {
+        const obj = v as Record<string, unknown>;
+        descString = String(obj.description || obj.text || obj.value || obj.title || "");
+      } else if (v !== undefined && v !== null) {
+        descString = String(v);
+      }
+      if (!descString.trim()) {
+        descString = "Professional services: scope, deliverables and handover";
+      }
+
+      if (!invoice.lineItems || invoice.lineItems.length === 0) {
+        return {
+          ...invoice,
+          lineItems: [
+            {
+              id: "li-1",
+              description: descString,
+              quantity: 1,
+              unitPrice: 0,
+            },
+          ],
+        };
+      }
+
+      let matched = false;
+      const updated = invoice.lineItems.map((li: LineItem) => {
+        if (issue.fixTargetId && li.id === issue.fixTargetId) {
+          matched = true;
+          return { ...li, description: descString };
+        }
+        return li;
+      });
+
+      if (!matched) {
+        const weakIdx = updated.findIndex((li) => isWeakDescription(li.description));
+        const targetIdx = weakIdx >= 0 ? weakIdx : 0;
+        updated[targetIdx] = { ...updated[targetIdx], description: descString };
+      }
+
       return {
         ...invoice,
-        lineItems: invoice.lineItems.map((li: LineItem) =>
-          li.id === issue.fixTargetId ? { ...li, description: v } : li,
-        ),
+        lineItems: updated,
       };
+    }
+    default:
+      return invoice;
   }
 }
 

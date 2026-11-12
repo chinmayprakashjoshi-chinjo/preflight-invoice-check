@@ -166,7 +166,7 @@ export function DraftInvoiceForm({
                   currency: nextCurr,
                   lineItems:
                     prev.currency !== nextCurr
-                      ? prev.lineItems.map((li) => ({ ...li, unitPrice: 0 }))
+                      ? []
                       : prev.lineItems,
                 }));
               }}
@@ -273,7 +273,7 @@ export function DraftInvoiceForm({
                     <td className="px-2 py-2">
                       <Input
                         aria-label={`Line ${idx + 1} description`}
-                        value={li.description ?? ""}
+                        value={typeof li.description === "string" ? li.description : String(li.description ?? "")}
                         onChange={(e) => updateLine(li.id, { description: e.target.value })}
                         placeholder="What did you deliver?"
                         className={cn(

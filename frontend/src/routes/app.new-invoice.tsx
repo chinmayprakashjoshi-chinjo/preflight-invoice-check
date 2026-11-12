@@ -308,62 +308,130 @@ function NewInvoicePage() {
   }
 
   function handleFix(issue: Issue) {
-    if (issue.fixField === "currency") {
-      const nextCurrency = (issue.fixValue as Currency) || "USD";
-      if (targetNet && targetNet > 0) {
-        // Re-trigger the Pricer calculation utility to compute new gross based on original target net
-        const pricing = calcPricing({
-          targetNet,
-          currency: userCurrency,
-          clientCurrency: nextCurrency,
-          crossCurrency: userCurrency !== nextCurrency,
-        });
-        const newGross = pricing.invoiceAmount;
+    try {
+      if (!issue) return;
 
-        setDraft((prev: DraftInvoice) => ({
-          ...prev,
-          currency: nextCurrency,
-          lineItems:
-            prev.lineItems.length > 0
-              ? prev.lineItems.map((li, idx) =>
-                  idx === 0 ? { ...li, unitPrice: newGross } : li,
-                )
-              : [
-                  newLineItem({
-                    description: "Services rendered",
-                    quantity: 1,
-                    unitPrice: newGross,
-                  }),
-                ],
-        }));
-        setLockedAmount(newGross);
-        setLockedCurrency(nextCurrency);
-        toast.info(`Switched currency to ${nextCurrency}`, {
-          description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} to guarantee ${formatMoney(targetNet, userCurrency)} net in pocket.`,
+      if (issue.fixField === "currency" || issue.id === "currency") {
+        const nextCurrency = (issue.fixValue as Currency) || "USD";
+        if (targetNet && targetNet > 0) {
+          // Re-trigger the Pricer calculation utility to compute new gross based on original target net
+          const pricing = calcPricing({
+            targetNet,
+            currency: userCurrency,
+            clientCurrency: nextCurrency,
+            crossCurrency: userCurrency !== nextCurrency,
+          });
+          const newGross = pricing.invoiceAmount;
+
+          setDraft((prev: DraftInvoice) => ({
+            ...prev,
+            currency: nextCurrency,
+            lineItems:
+              prev.lineItems.length > 0
+                ? prev.lineItems.map((li, idx) =>
+                    idx === 0 ? { ...li, unitPrice: newGross } : li,
+                  )
+                : [
+                    newLineItem({
+                      description: "Services rendered",
+                      quantity: 1,
+                      unitPrice: newGross,
+                    }),
+                  ],
+          }));
+          setLockedAmount(newGross);
+          setLockedCurrency(nextCurrency);
+          toast.info(`Switched currency to ${nextCurrency}`, {
+            description: `Recalculated gross amount to ${formatMoney(newGross, nextCurrency)} to guarantee ${formatMoney(targetNet, userCurrency)} net in pocket.`,
+          });
+        } else {
+          // Force-clear line items array and invoice total completely
+          setDraft((prev: DraftInvoice) => ({
+            ...prev,
+            currency: nextCurrency,
+            lineItems: [],
+          }));
+          setLockedAmount(null);
+          setLockedCurrency(null);
+          setTargetNet(null);
+          toast.warning(`Switched currency to ${nextCurrency}`, {
+            description:
+              "Line items and total cleared. Please fetch a fresh calculation from the Net-Landing Pricer or add USD items.",
+          });
+        }
+      } else if (issue.fixField === "lineItemDescription" || issue.id === "description") {
+        // Safely extract string representation of fixValue
+        let safeDesc = "";
+        const val = issue.fixValue;
+        if (typeof val === "string") {
+          safeDesc = val;
+        } else if (val && typeof val === "object") {
+          const obj = val as Record<string, unknown>;
+          safeDesc = String(obj.description || obj.text || obj.value || obj.title || "");
+        } else if (val !== undefined && val !== null) {
+          safeDesc = String(val);
+        }
+
+        if (!safeDesc.trim()) {
+          safeDesc = "Professional services: scope, deliverables and handover";
+        }
+
+        setDraft((prev: DraftInvoice) => {
+          if (!prev || !Array.isArray(prev.lineItems)) return prev;
+          let targetIndex = -1;
+          if (issue.fixTargetId) {
+            targetIndex = prev.lineItems.findIndex((li) => li.id === issue.fixTargetId);
+          }
+          if (targetIndex === -1) {
+            targetIndex = prev.lineItems.findIndex((li) => isWeakDescription(li.description));
+          }
+          if (targetIndex === -1 && prev.lineItems.length > 0) {
+            targetIndex = 0;
+          }
+
+          if (targetIndex === -1) {
+            return {
+              ...prev,
+              lineItems: [
+                newLineItem({
+                  description: safeDesc,
+                  quantity: 1,
+                  unitPrice: 0,
+                }),
+              ],
+            };
+          }
+
+          const updatedItems = prev.lineItems.map((li, idx) =>
+            idx === targetIndex ? { ...li, description: safeDesc } : li,
+          );
+
+          return {
+            ...prev,
+            lineItems: updatedItems,
+          };
+        });
+
+        toast.success("Description improved", {
+          description: "Audit-friendly scope description applied.",
         });
       } else {
-        // Original target amount isn't available in scope:
-        // Update currency and automatically clear Line Items / Total
-        setDraft((prev: DraftInvoice) => ({
-          ...prev,
-          currency: nextCurrency,
-          lineItems: prev.lineItems.map((li) => ({ ...li, unitPrice: 0 })),
-        }));
-        setLockedAmount(null);
-        setLockedCurrency(null);
-        toast.warning(`Switched currency to ${nextCurrency}`, {
-          description:
-            "Line item amounts cleared. Please use the Net-Landing Pricer to recalculate the exact gross amount.",
+        setDraft((d: DraftInvoice) => {
+          const updated = applyFix(d, issue);
+          return updated ?? d;
         });
       }
-    } else {
-      setDraft((d: DraftInvoice) => applyFix(d, issue));
-    }
 
-    if (issue.fixField) {
-      setFlash({ field: issue.fixField, lineId: issue.fixTargetId });
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setFlash(null), 1400);
+      if (issue.fixField) {
+        setFlash({ field: issue.fixField, lineId: issue.fixTargetId });
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setFlash(null), 1400);
+      }
+    } catch (err: unknown) {
+      console.error("[handleFix] Exception while resolving issue:", err);
+      toast.error("Could not apply fix automatically", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

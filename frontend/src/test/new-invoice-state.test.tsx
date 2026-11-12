@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calcPricing } from "@/lib/pricer";
-import { applyFix } from "@/lib/preflight";
+import { applyFix, improveDescription, isWeakDescription } from "@/lib/preflight";
 import { seedInvoices } from "@/mocks/invoices";
 import type { DraftInvoice, InvoiceRecord, InvoiceStatus, LineItem } from "@/lib/types";
 
@@ -208,6 +208,158 @@ describe("Application State Management & Logic Bug Fixes", () => {
       expect(state.poNumber).toBe("PO-2026-04418");
       expect(state.lineItems.length).toBe(1);
       expect(state.lineItems[0].id).toBe("li-2");
+    });
+  });
+
+  describe("Bug 4: 'Improve' Button Safety & Never Crash", () => {
+    it("handles undefined, null, or empty descriptions in isWeakDescription and improveDescription safely", () => {
+      expect(isWeakDescription(undefined as any)).toBe(true);
+      expect(isWeakDescription(null as any)).toBe(true);
+      expect(isWeakDescription("")).toBe(true);
+      expect(isWeakDescription("   ")).toBe(true);
+      expect(isWeakDescription("design")).toBe(true);
+      expect(isWeakDescription("Full-stack web application development")).toBe(false);
+
+      expect(improveDescription(undefined as any, "2026-11-12")).toContain("Professional services");
+      expect(improveDescription(null as any, "2026-11-12")).toContain("Professional services");
+      expect(improveDescription("services", "2026-11-12")).toContain("Services: scope");
+    });
+
+    it("safely unwraps object-based AI suggestions without injecting objects into string state", () => {
+      const draft: DraftInvoice = {
+        clientId: "acme",
+        clientName: "Acme Corporation Ltd",
+        sendTo: "ap@acme.example",
+        currency: "USD",
+        paymentTerms: "Net 30",
+        poNumber: "PO-123",
+        vatId: "",
+        invoiceDate: "2026-11-12",
+        lineItems: [
+          { id: "li-1", description: "work", quantity: 1, unitPrice: 100 },
+        ],
+      };
+
+      // When AI returns an object payload { description: "..." }
+      const fixed = applyFix(draft, {
+        id: "description",
+        severity: "warning",
+        title: "Line description is too vague",
+        message: "AP teams match line items to the PO scope.",
+        fixLabel: "Improve",
+        fixField: "lineItemDescription",
+        fixValue: { description: "Backend architecture review and implementation" } as any,
+        fixTargetId: "li-1",
+      });
+
+      expect(typeof fixed.lineItems[0].description).toBe("string");
+      expect(fixed.lineItems[0].description).toBe("Backend architecture review and implementation");
+    });
+
+    it("falls back gracefully when fixTargetId is not found or lineItems is empty", () => {
+      const emptyDraft: DraftInvoice = {
+        clientId: "acme",
+        clientName: "Acme Corporation Ltd",
+        sendTo: "ap@acme.example",
+        currency: "USD",
+        paymentTerms: "Net 30",
+        poNumber: "PO-123",
+        vatId: "",
+        invoiceDate: "2026-11-12",
+        lineItems: [],
+      };
+
+      const fixedEmpty = applyFix(emptyDraft, {
+        id: "description",
+        severity: "warning",
+        title: "Line description is too vague",
+        message: "AP teams match line items to the PO scope.",
+        fixLabel: "Improve",
+        fixField: "lineItemDescription",
+        fixValue: "Security audit and penetration testing",
+      });
+
+      expect(fixedEmpty.lineItems.length).toBe(1);
+      expect(fixedEmpty.lineItems[0].description).toBe("Security audit and penetration testing");
+
+      // Mismatched target ID
+      const existingDraft: DraftInvoice = {
+        ...emptyDraft,
+        lineItems: [{ id: "li-actual", description: "work", quantity: 1, unitPrice: 200 }],
+      };
+
+      const fixedMismatched = applyFix(existingDraft, {
+        id: "description",
+        severity: "warning",
+        title: "Line description is too vague",
+        message: "AP teams match line items to the PO scope.",
+        fixLabel: "Improve",
+        fixField: "lineItemDescription",
+        fixValue: "Security audit and penetration testing",
+        fixTargetId: "li-nonexistent",
+      });
+
+      expect(fixedMismatched.lineItems[0].description).toBe("Security audit and penetration testing");
+    });
+
+    it("always returns an invoice object and never undefined for unknown fix fields", () => {
+      const draft: DraftInvoice = {
+        clientId: "acme",
+        clientName: "Acme Corporation Ltd",
+        sendTo: "ap@acme.example",
+        currency: "USD",
+        paymentTerms: "Net 30",
+        poNumber: "PO-123",
+        vatId: "",
+        invoiceDate: "2026-11-12",
+        lineItems: [{ id: "li-1", description: "Design", quantity: 1, unitPrice: 100 }],
+      };
+
+      const result = applyFix(draft, {
+        id: "unknown",
+        severity: "warning",
+        title: "Some unknown warning",
+        message: "Testing fallback",
+        fixField: "nonexistentField" as any,
+        fixValue: "something",
+      });
+
+      expect(result).toBeDefined();
+      expect(result.currency).toBe("USD");
+      expect(result.clientName).toBe("Acme Corporation Ltd");
+    });
+  });
+
+  describe("Bug 5: 'Switch to USD' Overhaul Prevents Currency Math Desync", () => {
+    it("completely clears line items array when targetNet is null, forcing fresh calculation", () => {
+      const draft: DraftInvoice = {
+        clientId: "acme",
+        clientName: "Acme Corporation Ltd",
+        sendTo: "ap@acme.example",
+        currency: "SGD",
+        paymentTerms: "Net 30",
+        poNumber: "PO-123",
+        vatId: "",
+        invoiceDate: "2026-11-12",
+        lineItems: [
+          { id: "li-1", description: "Web design", quantity: 1, unitPrice: 189.06 },
+        ],
+      };
+
+      // Currency fix applied without targetNet
+      const fixed = applyFix(draft, {
+        id: "currency",
+        severity: "blocker",
+        title: "Currency not accepted",
+        message: "SGD is not accepted. This client only pays in USD.",
+        fixLabel: "Switch to USD",
+        fixField: "currency",
+        fixValue: "USD",
+      });
+
+      expect(fixed.currency).toBe("USD");
+      // Must be completely cleared to prevent 189.06 SGD becoming 189.06 USD
+      expect(fixed.lineItems).toEqual([]);
     });
   });
 });

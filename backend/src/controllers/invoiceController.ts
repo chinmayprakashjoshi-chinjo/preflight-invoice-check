@@ -8,14 +8,15 @@ import {
 } from "../services/paypalService.js";
 import { validateInvoiceWithAICoPilot } from "../services/aiService.js";
 import { dueDateFor, termsToDays } from "../../../shared/format.js";
-import type {
-  DraftInvoice,
-  LineItem,
-  Currency,
-  PaymentTerms,
-  ClientRequirements,
-  InvoiceRecord,
-  InvoiceStatus,
+import {
+  CURRENCIES,
+  type DraftInvoice,
+  type LineItem,
+  type Currency,
+  type PaymentTerms,
+  type ClientRequirements,
+  type InvoiceRecord,
+  type InvoiceStatus,
 } from "../../../shared/types.js";
 
 // Fast in-memory idempotency cache fallback
@@ -43,7 +44,7 @@ function normalizeInvoiceInput(rawBody: any): DraftInvoice {
         },
       ];
 
-  const currency: Currency = body.currency === "EUR" ? "EUR" : "USD";
+  const currency: Currency = CURRENCIES.includes(body.currency) ? body.currency : "USD";
 
   let paymentTerms: PaymentTerms = "Net 30";
   const rawTerms = String(body.paymentTerms || body.payment_terms || "Net 30");
